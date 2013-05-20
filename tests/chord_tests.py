@@ -12,6 +12,21 @@ from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 from thrift.server import TServer
 
+from contextlib import contextmanager
+
+@contextmanager
+def connect(port):
+    try:
+        transport = TTransport.TBufferedTransport(
+                TSocket.TSocket('localhost', port))
+        protocol = TBinaryProtocol.TBinaryProtocol(transport)
+        client = KeyValueStore.Client(protocol)
+        transport.open()
+        yield client
+        transport.close()
+    except Thrift.TException, tx:
+        print "Caught exception:", tx.message
+
 def start_server_with_name_port(name, port):
     handler = ChordServer(name)
     processor = KeyValueStore.Processor(handler)
@@ -25,48 +40,38 @@ def spawn_server(name, port):
     p = multiprocessing.Process(target=start_server_with_name_port,
             args=(name, port))
     p.start()
-    sleep(3)
+    sleep(1)
     return p
-
-def get_client(port):
-    try:
-        transport = TTransport.TBufferedTransport(
-                TSocket.TSocket('localhost', port))
-        protocol = TBinaryProtocol.TBinaryProtocol(transport)
-        client = KeyValueStore.Client(protocol)
-        return client, transport
-    except Thrift.TException, tx:
-        print "Caught exception:", tx.message
-
-def test_chord_create():
-    a = spawn_server("A", 3342)
-    client, transport = get_client(3342)
-    transport.open()
-    status = client.create()
-    transport.close()
-    assert status == ChordStatus.OK
-    a.terminate()
-
-def test_chord_join_simple():
-    a = spawn_server("A", 3342)
-    b = spawn_server("B", 3343)
-    client, transport = get_client(3342)
-    transport.open()
-    status = client.create()
-    transport.close()
-    assert status == ChordStatus.OK
-   
-    client, transport = get_client(3343)
-    transport.open()
-    status = client.join("A")
-    succ_b = client.predecessor()
-    transport.close()
-    assert status == ChordStatus.OK
-    assert succ_b == "A"
-
-#    client, transport = get_client(3342)
-#    transport.open()
-#    status = client.predecessor()
-#    transport.close()
-#    assert status == ChordStatus.OK
  
+class TestChord:
+   
+    def test_chord_create(self):
+        a = spawn_server("A", 3342)
+        try:
+            with connect(3342) as client:
+                status = client.create()
+            assert status == ChordStatus.OK
+        finally:
+            a.terminate()
+    
+    def test_chord_join_simple(self):
+        a = spawn_server("A", 3342)
+        b = spawn_server("B", 3343)
+        try:
+            with connect(3342) as client:
+                status = client.create()
+            assert status == ChordStatus.OK
+     
+            with connect(3343) as client:
+                status = client.join("A")
+                pred_b = client.predecessor()
+            assert status == ChordStatus.OK
+            assert pred_b == "A"
+
+            with connect(3342) as client:
+                pred_a = client.predecessor()
+            assert pred_a == "B"
+        finally:
+            a.terminate()
+            b.terminate()
+
