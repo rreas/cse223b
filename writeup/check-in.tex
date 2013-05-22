@@ -18,22 +18,42 @@
 \newcommand{\K}{\mathcal{O}}
 
 \title{Blah.}
-\author{Connie Chen \\ cwc009@cs.ucsd.edu
-\and Russell Reas \\ rreas@cs.ucsd.edu
-\and Rakesh Varna \\ rvarna@cs.ucsd.edu}
+\author{Connie Chen \and Russell Reas \and Rakesh Varna}
 \date{May 23, 2013}
 
 \begin{document}
 
-%\maketitle
+\maketitle
 
-\section{Introduction and Goals}
+\section{Introduction}
+
+This project aims to implement a backend-agnostic distributed key-value storage system.  Our main deliverable includes Chord-based node management software along with basic implementations of drivers for in-memory data and the Redis key-value server.  Only a subset of the operations available with Redis will be supported.
+
+In addition to supporting node joining and failure as outlined in the Chord paper, we plan to experimentally explore various methods for reducing the $O(\log n)$ complexity of read operations.  Furthermore, we plan to implement a simple replication model on top of the Chord system.
+
+FIXME: Network partitions?
+
+\section{Software Artifact}
+
+The main software artifact is a multi-threaded server written in Python for the Thrift RPC framework.  As noted above, we plan to include example drivers for both in-memory and the Redis key-value stores.  A small subset of operations, perhaps just {\tt get} and {\tt put}, will be supported as building a key-value server itself is not the emphasis of the project.  
+
+\section{Design of System}
+
+We will apply the same consistent hashing approach outlined in the Chord paper.  Similar to the replication approach used in Amazon's Dynamo~\ref{dynamo}, we will copy some data from the key primary to $N \ge 0$ successors where $N$ is a user-controlled parameter.
+
+
 
 \section{Comparison to Previous Work}
+- Redis Cluster
+- Redis Sentinel
+- twemproxy
+- Dynamo
+- Beehive
+- Chord reduction in lookup
 
-\section{Software Structure}
+\section{Evaluation}
 
-\section{Experiments and Results}
+We plan to evaluate performance under various failure scenarios including nodes joining and leaving.  Additionally, we would like to explore the empirical efficiency of reading and writing given various read/write schemes.  In terms of these experiments, success includes both properly designed experiments as well as the, hopefully informative, results of experiments.
 
 The particular software artifact you intent to complete.
 A high-level description of the design of your system.
