@@ -17,7 +17,7 @@
 \newcommand{\argmax}{\operatorname{argmax }\, }
 \newcommand{\K}{\mathcal{O}}
 
-\title{Blah.}
+\title{CSE 223B Project Check-in}
 \author{Connie Chen \and Russell Reas \and Rakesh Varna}
 \date{May 23, 2013}
 
@@ -31,33 +31,27 @@ This project aims to implement a backend-agnostic distributed key-value storage 
 
 In addition to supporting node joining and failure as outlined in the Chord paper, we plan to experimentally explore various methods for reducing the $O(\log n)$ complexity of read operations.  Furthermore, we plan to implement a simple replication model on top of the Chord system.
 
-FIXME: Network partitions?
-
 \section{Software Artifact}
 
 The main software artifact is a multi-threaded server written in Python for the Thrift RPC framework.  As noted above, we plan to include example drivers for both in-memory and the Redis key-value stores.  A small subset of operations, perhaps just {\tt get} and {\tt put}, will be supported as building a key-value server itself is not the emphasis of the project.  
 
 \section{Design of System}
 
-We will apply the same consistent hashing approach outlined in the Chord paper.  Similar to the replication approach used in Amazon's Dynamo~\ref{dynamo}, we will copy some data from the key primary to $N \ge 0$ successors where $N$ is a user-controlled parameter.
-
-
+We will apply the same consistent hashing approach outlined in the Chord paper.  Similar to the replication approach used in Amazon's Dynamo, we will copy some data from the key primary to $N \ge 0$ successors where $N$ is a user-controlled parameter.
 
 \section{Comparison to Previous Work}
-- Redis Cluster
-- Redis Sentinel
-- twemproxy
-- Dynamo
-- Beehive
-- Chord reduction in lookup
+
+Several similar projects exist, and we will discuss differences and similarities:
+\begin{itemize}
+\item Redis Cluster, Redis Sentinel, and twemproxy
+\item Dynamo and Beehive
+\item The Chord paper describes complexity reduction for the average case by expanding the size of the finger table
+\end{itemize}
 
 \section{Evaluation}
 
-We plan to evaluate performance under various failure scenarios including nodes joining and leaving.  Additionally, we would like to explore the empirical efficiency of reading and writing given various read/write schemes.  In terms of these experiments, success includes both properly designed experiments as well as the, hopefully informative, results of experiments.
+At this point we plan two main experiments: Measure replication in node joining and failure scenarios.  At what rate of failure do we start to see data loss in the system?  Evaluate the performance of {\tt get} requests under various types of load, for example, accessing the same key repeatedly or accessing random keys repeatedly.  Which cases do faster lookup schemes improve?  
 
-The particular software artifact you intent to complete.
-A high-level description of the design of your system.
-Any existing software packages you are using as a basis for your development.
-Your evaluation plan for this artifact. How will you measure success? What will you use for a testbed? Do you need any resources from us?
+Access to some type of cluster environment would be helpful.  This will allow us to run large numbers of nodes.  We currently have the ability to run multiple nodes on a single machine as well.
 
 \end{document}
