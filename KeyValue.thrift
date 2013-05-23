@@ -8,16 +8,23 @@ enum ChordStatus {
   ERROR = 2
 }
 
+struct DataResponse {
+  1: ChordStatus status,
+  2: map<string, string> kvstore,
+  3: list<string> finger_table
+}
+
+struct GetValueResponse {
+  1: ChordStatus status,
+  2: string value
+}
+
 service KeyValueStore {
-  string get(1: string key)
-
-  ChordStatus create(),
-  ChordStatus join(1: string existing_node_id),
-  ChordStatus notify(1: string notifier_node_id),
-  ChordStatus find_successor(1: string key_id),
-  ChordStatus closest_preceding_node(1: string key_id),
-  ChordStatus alive(),
-  ChordStatus predecessor()
-
+  GetValueResponse get(1: string key),
+  string get_predecessor(),
+  string get_successor_for_key(1: string key),
+  DataResponse get_init_data(1: string hash),
+  ChordStatus put(1: string key, 2: string value),
+  ChordStatus notify(1: string node)
 }
 
