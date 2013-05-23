@@ -27,31 +27,31 @@
 
 \section{Introduction}
 
-This project aims to implement a backend-agnostic distributed key-value storage system.  Our main deliverable includes Chord-based node management software along with basic implementations of drivers for in-memory data and the Redis key-value server.  Only a subset of the operations available with Redis will be supported.
+This project aims to implement a backend-agnostic distributed key-value storage system. Our main deliverable includes Chord-based node management software along with basic implementations of drivers for in-memory data and the Redis key-value server. Only a subset of the operations available with Redis will be supported.
 
-In addition to supporting node joining and failure as outlined in the Chord paper, we plan to experimentally explore various methods for reducing the $O(\log n)$ complexity of read operations.  Furthermore, we plan to implement a simple replication model on top of the Chord system.
+In addition to supporting node joining and failure as outlined in the Chord paper, we plan to experimentally explore various methods for reducing the $O(\log n)$ complexity of read operations. Furthermore, we plan to implement a simple replication model on top of the Chord system.
 
 \section{Software Artifact}
 
-The main software artifact is a multi-threaded server written in Python for the Thrift RPC framework.  As noted above, we plan to include example drivers for both in-memory and the Redis key-value stores.  A small subset of operations, perhaps just {\tt get} and {\tt put}, will be supported as building a key-value server itself is not the emphasis of the project.  
+The main software artifact is a multi-threaded server written in Python for the Thrift RPC framework. As noted above, we plan to include example drivers for both in-memory and the Redis key-value stores. A small subset of operations, perhaps just {\tt get} and {\tt put}, will be supported as building a key-value server itself is not the emphasis of the project. 
 
 \section{Design of System}
 
-We will apply the same consistent hashing approach outlined in the Chord paper.  Similar to the replication approach used in Amazon's Dynamo, we will copy some data from the key primary to $N \ge 0$ successors where $N$ is a user-controlled parameter.
+We will apply the same consistent hashing approach outlined in the Chord paper. Similar to the replication approach used in Amazon's Dynamo, we will copy some data from the key primary to $N \ge 0$ successors where $N$ is a user-controlled parameter.
 
 \section{Comparison to Previous Work}
 
 Several similar projects exist, and we will discuss differences and similarities:
 \begin{itemize}
 \item Redis Cluster, Redis Sentinel, and twemproxy
-\item Dynamo and Beehive
+\item Dynamo 
 \item The Chord paper describes complexity reduction for the average case by expanding the size of the finger table
 \end{itemize}
 
 \section{Evaluation}
 
-At this point we plan two main experiments: Measure replication in node joining and failure scenarios.  At what rate of failure do we start to see data loss in the system?  Evaluate the performance of {\tt get} requests under various types of load, for example, accessing the same key repeatedly or accessing random keys repeatedly.  Which cases do faster lookup schemes improve?  
+At this point we plan two main experiments: Measure replication in node joining and failure scenarios. At what rate of failure do we start to see data loss in the system? Evaluate the performance of {\tt get} requests under various types of load, for example, accessing the same key repeatedly or accessing random keys repeatedly. Which cases do faster lookup schemes improve? 
 
-Access to some type of cluster environment would be helpful.  This will allow us to run large numbers of nodes.  We currently have the ability to run multiple nodes on a single machine as well.
+Access to some type of cluster environment would be helpful. This will allow us to run large numbers of nodes. We currently have the ability to run multiple nodes on a single machine as well.
 
 \end{document}
