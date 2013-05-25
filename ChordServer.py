@@ -1,5 +1,9 @@
 import sys
 sys.path.append('./gen-py')
+from hashlib import md5
+from bisect import bisect
+from time import sleep
+from math import pow
 
 # Thrift imports
 from thrift import Thrift
@@ -8,46 +12,18 @@ from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 from thrift.server import TServer
 
-from KeyValue import KeyValueStore
-#import KeyValueStore
-from KeyValue.ttypes import *
-#from ttypes import *
-from hashlib import md5
-from bisect import bisect
-from time import sleep
-from math import pow
 import threading2
 
-
-def enum(**enums):
-    return type('Enum', (), enums)
-
-def decode_node(node_key):
-    return node_key.split(DELIMITER)
-
-def encode_node(hostname, port):
-    return hostname + ":" + str(port)
-
-def get_hash(key):
-    return int(md5(key).hexdigest(), 16)
-
-DELIMITER = ":"
+from KeyValue import KeyValueStore
+from KeyValue.ttypes import *
+from helpers import *
 
 # This is dependent on the hash we use.
 # MD5 creates a 128 bit digest.
-FINGER_TABLE_LENGTH = 128;
-MAX = pow(2, FINGER_TABLE_LENGTH);
-Operations = enum(
-    GET = 1,
-    GET_SUCCESSOR_FOR_KEY = 2,
-    GET_INIT_DATA = 3,
-    GET_PREDECESSOR = 4,
-    GET_SUCCESSOR = 5,
-    NOTIFY = 6,
-    PUT = 7
-    )
-
+FINGER_TABLE_LENGTH = 128
+MAX = pow(2, FINGER_TABLE_LENGTH)
 lock = threading2.Lock()
+
 class ChordServer(KeyValueStore.Iface): # probably need the thrift interface inside the parantheses here.
     
     # If chord_name and chord_port are not given, this is the first node in Chord ring.
@@ -63,11 +39,15 @@ class ChordServer(KeyValueStore.Iface): # probably need the thrift interface ins
         self.finger_hash_table = []
         self.finger_node_table = []
         self.hashcode = get_hash(self.node_key)
-        #self.f = open(str(self.port) , 'w')
+
         # Join an existing chord ring.
         if chord_name is not None:
             assert(chord_port is not None)
-            self.successor = self.remote_request(encode_node(chord_name, chord_port), Operations.GET_SUCCESSOR_FOR_KEY, str(self.hashcode))
+            remote_node = encode_node(chord_name, chord_port)
+            with remote(remote_node) as client:
+                self.successor = client.get_successor_for_key(
+                        str(self.hashcode))
+
             self.initialize()
         else:
             # There is no finger table to borrow, so create one.
@@ -77,8 +57,9 @@ class ChordServer(KeyValueStore.Iface): # probably need the thrift interface ins
         
 
     def initialize(self):
-        data_response = self.remote_request(self.successor, Operations.GET_INIT_DATA, str(self.hashcode))
-        # TODO: if status is not OK, throw Exception?
+        with remote(self.successor) as client:
+            data_response = client.get_init_data(str(self.hashcode))
+
         self.kvstore = (data_response.kvstore)
         self.build_finger_tables(data_response.finger_hash_table, data_response.finger_node_table)
         del self.finger_node_table[len(self.finger_node_table) - 1]
@@ -86,8 +67,9 @@ class ChordServer(KeyValueStore.Iface): # probably need the thrift interface ins
         self.finger_node_table.insert(0, self.successor)
         self.finger_hash_table.insert(0, get_hash(self.successor))
 
-        status = self.remote_request(self.successor, Operations.NOTIFY, self.node_key)
-        # TODO: if status != OK, throw Exception?
+        # TODO: check status?
+        with remote(self.successor) as client:
+            status = client.notify(self.node_key)
 
     def build_finger_tables(self, hash_table, node_table):
         assert(len(hash_table) == len(node_table))
@@ -137,7 +119,8 @@ class ChordServer(KeyValueStore.Iface): # probably need the thrift interface ins
 
         target_node = self.finger_node_table[index - 1]
         if target_node != self.node_key:
-            return self.remote_request(self.finger_node_table[index - 1], Operations.GET_SUCCESSOR_FOR_KEY, hashcode)
+            with remote(self.finger_node_table[index - 1]) as client:
+                return client.get_successor_for_key(hashcode)
         else:
             return self.node_key
 
@@ -184,7 +167,8 @@ class ChordServer(KeyValueStore.Iface): # probably need the thrift interface ins
 
 
         master_node = self.get_successor_for_key(str(hashedKey))
-        return self.remote_request(master_node, Operations.GET, key)
+        with remote(master_node) as client:
+            return client.get(key)
 
     def put(self, key, value):
         # If there is no one else, forever alone, me gusta.
@@ -200,42 +184,12 @@ class ChordServer(KeyValueStore.Iface): # probably need the thrift interface ins
 
         master_node = self.get_successor_for_key(str(hashedKey))
         if master_node != self.node_key:
-            return self.remote_request(master_node, Operations.PUT, key, value)
+            with remote(master_node) as client:
+                return client.put(key, value)
 
         #print "Putting key", key
         self.kvstore[key] = value
         return ChordStatus.OK
-
-    def remote_request(self, node, op, key = None, value = None):
-        node_decoded = decode_node(node)
-        #lock.acquire()
-        try:
-            transport = TTransport.TBufferedTransport(TSocket.TSocket(node_decoded[0], int(node_decoded[1])))
-            protocol = TBinaryProtocol.TBinaryProtocol(transport)
-            client = KeyValueStore.Client(protocol)
-            transport.open()
-
-            if op == Operations.GET:
-                response = client.get(key)
-            elif op == Operations.GET_SUCCESSOR_FOR_KEY:
-                response = client.get_successor_for_key(key)
-            elif op == Operations.GET_INIT_DATA:
-                response = client.get_init_data(key)
-            elif op == Operations.GET_PREDECESSOR:
-                response = client.get_predecessor()
-            elif op == Operations.GET_SUCCESSOR:
-                response = client.get_successor()
-            elif op == Operations.NOTIFY:
-                response = client.notify(key)
-            elif op == Operations.PUT:
-                response = client.put(key,value)
-
-            transport.close()
-            #lock.release()
-            return response
-        except Thrift.TException, tx:
-            #lock.release()
-            print "Caught exception:", tx.message, node_decoded[0], node_decoded[1]
 
     def notify(self, node):
         # TODO: Probably need a check to see if it is truly the predecessor (see Chord)
@@ -248,15 +202,18 @@ class ChordServer(KeyValueStore.Iface): # probably need the thrift interface ins
             sleep(3)
             #print "Stabilizing"
             if self.successor != self.node_key:
-                x = self.remote_request(self.successor, Operations.GET_PREDECESSOR)
+                with remote(self.successor) as client:
+                    x = client.get_predecessor()
             else:
                 x = self.predecessor
+
             if x is not None and x != self.node_key:
                 # TODO: Do we need better checks or does it get stabilized eventually to the right node.  
                 # print "New successor ", x
                 self.successor = x
                 print "notifying %s that it is our successor" %(x)
-                status = self.remote_request(x, Operations.NOTIFY, self.node_key)
+                with remote(x) as client:
+                    status = client.notify(self.node_key)
                 # TODO check status and take action.
 
             self.fix_finger_table()

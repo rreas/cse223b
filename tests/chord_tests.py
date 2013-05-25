@@ -53,7 +53,6 @@ class TestChord:
         a = spawn_server("A", 3342)
         print "Spawned server at: ", a.name, a.pid
         try:
-            status = ""
             with connect(3342) as client:
                 assert type(client) == KeyValueStore.Client
         finally:
@@ -89,7 +88,6 @@ class TestChord:
         print "Spawned server at: ", b.name, b.pid
 
         try:
-            status = ""
             with connect(3342) as client:
                 assert type(client) == KeyValueStore.Client
 
