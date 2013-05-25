@@ -97,11 +97,11 @@ class TestChord:
             with connect(3343) as client:
                 #status = client.join("A")
                 pred_b = client.get_predecessor()
-                assert pred_b = encode_node('localhost', 3342)
+                assert pred_b == encode_node('localhost', 3342)
 
             with connect(3342) as client:
                 pred_a = client.get_predecessor()
-                assert pred_a = encode_node('localhost', 3343)
+                assert pred_a == encode_node('localhost', 3343)
         finally:
             a.terminate()
             b.terminate()
