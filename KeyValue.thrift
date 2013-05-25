@@ -11,7 +11,8 @@ enum ChordStatus {
 struct DataResponse {
   1: ChordStatus status,
   2: map<string, string> kvstore,
-  3: list<string> finger_table
+  3: list<string> finger_node_table,
+  4: list<string> finger_hash_table
 }
 
 struct GetValueResponse {

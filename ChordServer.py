@@ -15,9 +15,8 @@ from KeyValue.ttypes import *
 from hashlib import md5
 from bisect import bisect
 from time import sleep
-
+from math import pow
 import threading2
-
 
 
 def enum(**enums):
@@ -29,7 +28,14 @@ def decode_node(node_key):
 def encode_node(hostname, port):
     return hostname + ":" + str(port);
 
-DELIMITER = ":"
+def get_hash(key):
+    return int(md5(key).hexdigest(), 16);
+
+DELIMITER = ":";
+
+# This is dependent on the hash we use. MD5 creates a 128 bit digest.
+FINGER_TABLE_LENGTH = 128;
+MAX = pow(2, FINGER_TABLE_LENGTH);
 Operations = enum(
     GET = 1,
     GET_SUCCESSOR_FOR_KEY = 2,
@@ -40,7 +46,7 @@ Operations = enum(
     PUT = 7
     );
 
-
+lock = threading2.Lock();
 class ChordServer(KeyValueStore.Iface): # probably need the thrift interface inside the parantheses here.
     
     # If chord_name and chord_port are not given, this is the first node in Chord ring.
@@ -49,48 +55,96 @@ class ChordServer(KeyValueStore.Iface): # probably need the thrift interface ins
         #initialize data structures
         self.hostname = hostname;
         self.port = port;
+        self.node_key = encode_node(self.hostname, self.port);
         self.kvstore = {};
-        self.successor = encode_node(self.hostname, self.port);
+        self.successor = self.node_key;
         self.predecessor = None;
-        self.finger_table = [];
-        self.hashcode = md5(encode_node(self.hostname, self.port)).hexdigest();
+        self.finger_hash_table = [];
+        self.finger_node_table = [];
+        self.hashcode = get_hash(self.node_key);
+        #self.f = open(str(self.port) , 'w');
         # Join an existing chord ring.
         if chord_name is not None:
             assert(chord_port is not None);
-            self.successor = self.remote_request(encode_node(chord_name, chord_port), Operations.GET_SUCCESSOR_FOR_KEY, self.hashcode);
+            self.successor = self.remote_request(encode_node(chord_name, chord_port), Operations.GET_SUCCESSOR_FOR_KEY, str(self.hashcode));
             self.initialize();
+        else:
+            # There is no finger table to borrow, so create one.
+            self.initialize_finger_tables();
 
-        t = threading2.Thread(target = self.stabilize);
-        t.daemon = True;
-        t.start();
+        self.initialize_threads();
+        
 
     def initialize(self):
-        data_response = self.remote_request(self.successor, Operations.GET_INIT_DATA, self.hashcode);
+        data_response = self.remote_request(self.successor, Operations.GET_INIT_DATA, str(self.hashcode));
         # TODO: if status is not OK, throw Exception?
-        self.kvstore.update(data_response.kvstore);
-        self.finger_table.append(data_response.finger_table);
-        del self.finger_table[len(self.finger_table) - 1]
-        self.finger_table.insert(0, self.successor);
+        self.kvstore = (data_response.kvstore);
+        self.build_finger_tables(data_response.finger_hash_table, data_response.finger_node_table);
+        del self.finger_node_table[len(self.finger_node_table) - 1];
+        del self.finger_hash_table[len(self.finger_hash_table) - 1];
+        self.finger_node_table.insert(0, self.successor);
+        self.finger_hash_table.insert(0, get_hash(self.successor));
 
-        status = self.remote_request(self.successor, Operations.NOTIFY, encode_node(self.hostname, self.port));
+        status = self.remote_request(self.successor, Operations.NOTIFY, self.node_key);
         # TODO: if status != OK, throw Exception?
 
-    def get_successor_for_key(self, hashcode):
-        if self.successor == encode_node(self.hostname, self.port):
-            return encode_node(self.hostname, self.port);
+    def build_finger_tables(self, hash_table, node_table):
+        assert(len(hash_table) == len(node_table));
+        for i in range(0, len(hash_table)):
+            self.finger_node_table.append(node_table[i]);
+            self.finger_hash_table.append(int(hash_table[i], 16));
 
-        index = bisect(self.finger_table, hashcode);
-        # If the current node cannot resolve the successor, ask the last node in the finger table.
-        if index == len(self.finger_table):
-            return self.remote_request(self.finger_table[len(self.finger_table - 1)], Operations.GET_SUCCESSOR, hashcode);
+    def initialize_finger_tables(self):
+        for i in range(0, FINGER_TABLE_LENGTH):
+            self.finger_node_table.append(self.node_key);
+            self.finger_hash_table.append(self.hashcode);
+
+    def initialize_threads(self):
+        stabilizer = threading2.Thread(target = self.stabilize);
+        stabilizer.daemon = True;
+        stabilizer.start();
+
+        '''fixer = threading2.Thread(target = self.fix_finger_table);
+        fixer.daemon = True;
+        fixer.start();'''
+
+    def get_successor_for_key(self, hashcode):
+        if type(hashcode) == str:
+            hashcode_int = int(float(hashcode));
         else:
-         return self.finger_table[index];
+            hashcode_int = hashcode;
+            hashcode = str(hashcode);
+        if self.successor == self.node_key:
+            return self.node_key;
+
+        if get_hash(self.successor) < self.hashcode:
+            if hashcode_int > get_hash(self.successor) and hashcode_int > get_hash(self.node_key):
+                return self.successor;
+            if hashcode_int < get_hash(self.successor) and hashcode_int < get_hash(self.node_key):
+                return self.successor;
+        elif hashcode_int > self.hashcode and hashcode_int < get_hash(self.successor):
+            return self.successor;
+
+        index = bisect(self.finger_hash_table, hashcode_int);
+        target_node = self.finger_node_table[index - 1];
+        if target_node != self.node_key:
+            return self.remote_request(self.finger_node_table[index - 1], Operations.GET_SUCCESSOR_FOR_KEY, hashcode);
+        else:
+            return self.node_key;
 
     def get_init_data(self, hashcode):
+        if type(hashcode) == str:
+            hashcode_int = int(float(hashcode));
+        else:
+            hashcode_int = hashcode;
         # dummy for now.
         data_response = DataResponse();
         data_response.kvstore = {}
-        data_response.finger_table = [];
+        data_response.finger_node_table = self.finger_node_table;
+        data_response.finger_hash_table = [];
+        for i in range(0, len(self.finger_hash_table)):
+            data_response.finger_hash_table.append(str(self.finger_hash_table[i]));
+
         data_response.status = ChordStatus.OK;
         return data_response;
 
@@ -102,6 +156,8 @@ class ChordServer(KeyValueStore.Iface): # probably need the thrift interface ins
         return self.successor;
 
     def get(self, key):
+        hashedKey = get_hash(key);
+        #print "Key ", hashedKey;
         # If the key is present locally, retrieve the value (even if the local node is a replica)
         # Else, get it from the node we deem to be the master.
         response = GetValueResponse();
@@ -110,27 +166,33 @@ class ChordServer(KeyValueStore.Iface): # probably need the thrift interface ins
             response.value = self.kvstore[key];
             return response;
 
-        hashedKey = md5(key).hexdigest();
+
         master_node = self.get_successor_for_key(hashedKey);
         return self.remote_request(master_node, Operations.GET, key);
 
     def put(self, key, value):
         # If there is no one else, forever alone, me gusta.
-        if self.successor == encode_node(self.hostname, self.port):
+        if self.successor == self.node_key:
             self.kvstore[key] = value;
             return ChordStatus.OK;
 
-        hashedKey = md5(key).hexdigest();
+        hashedKey = get_hash(key);
         # Does it belong to the local node?
-        if hashedKey <= self.hashcode and hashedKey > md5(self.predecessor).hexdigest():
+        '''if hashedKey <= self.hashcode and hashedKey > get_hash(self.predecessor):
             self.kvstore[key] = value;
-            return ChordStatus.OK;
+            return ChordStatus.OK;'''
 
-        master_node = self.get_successor_for_key(hashedKey);
-        return self.remote_request(master_node, Operations.PUT, key, value);
+        master_node = self.get_successor_for_key(str(hashedKey));
+        if master_node != self.node_key:
+            return self.remote_request(master_node, Operations.PUT, key, value);
+
+        #print "Putting key", key;
+        self.kvstore[key] = value;
+        return ChordStatus.OK;
 
     def remote_request(self, node, op, key = None, value = None):
         node_decoded = decode_node(node);
+        #lock.acquire();
         try:
             transport = TTransport.TBufferedTransport(TSocket.TSocket(node_decoded[0], int(node_decoded[1])));
             protocol = TBinaryProtocol.TBinaryProtocol(transport);
@@ -153,30 +215,56 @@ class ChordServer(KeyValueStore.Iface): # probably need the thrift interface ins
                 response = client.put(key,value);
 
             transport.close();
+            #lock.release();
             return response;
         except Thrift.TException, tx:
+            #lock.release();
             print "Caught exception:", tx.message;
 
     def notify(self, node):
         # TODO: Probably need a check to see if it is truly the predecessor (see Chord)
+        print "%s thinks it is our predecessor" %(node);
         self.predecessor = node;
         return ChordStatus.OK;
-
 
     def stabilize(self):
         while True:
             sleep(3);
             #print "Stabilizing";
-            if self.successor != encode_node(self.hostname, self.port):
+            if self.successor != self.node_key:
                 x = self.remote_request(self.successor, Operations.GET_PREDECESSOR);
-                if x is not None:
-                    x_hashed = md5(x).hexdigest();
-                    if x_hashed > self.hashcode and x_hashed < md5(self.successor).hexdigest():
-                        self.successor = x;
-                        status = self.remote_request(x, Operations.NOTIFY, encode_node(self.hostname, self.port));
-                        # TODO check status and take action.
+            else:
+                x = self.predecessor;
+            if x is not None and x != self.node_key:
+                # TODO: Do we need better checks or does it get stabilized eventually to the right node.  
+                # print "New successor ", x;
+                self.successor = x;
+                print "notifying %s that it is our successor" %(x);
+                status = self.remote_request(x, Operations.NOTIFY, self.node_key);
+                # TODO check status and take action.;
 
+            self.fix_finger_table()
+            #self.print_details();
 
+    def fix_finger_table(self):
+        #while True:
+            #print "Fixing";
+        for i in range(0, FINGER_TABLE_LENGTH):
+            #sleep(5);
+            hashkey = (self.hashcode + pow(2, i)) % MAX;
+            successor = self.get_successor_for_key(str(hashkey));
+            if successor is not None and self.finger_node_table[i] != successor:
+                self.finger_node_table[i] = successor;
+                self.finger_hash_table[i] = get_hash(self.finger_node_table[i]);
+            #self.f.write(str(hashkey) + "  " + str(i) + "  " + self.finger_node_table[i] + "\n");
+        #self.f.write("===============================\n\n");
+
+    def print_details(self):
+        print "Node_Key ", self.node_key;
+        print "HashCode ", self.hashcode;
+        print "successor ", self.successor;
+        print "predecessor ", self.predecessor;
+        print "===============\n\n";
 
 if __name__ == '__main__':
     if len(sys.argv) > 3:
