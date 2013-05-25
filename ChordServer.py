@@ -35,7 +35,7 @@ DELIMITER = ":";
 
 # This is dependent on the hash we use. MD5 creates a 128 bit digest.
 FINGER_TABLE_LENGTH = 128;
-MAX = pow(2, FINGER_TABLE_LENGTH);
+MAX = int(pow(2, FINGER_TABLE_LENGTH));
 Operations = enum(
     GET = 1,
     GET_SUCCESSOR_FOR_KEY = 2,
@@ -109,11 +109,15 @@ class ChordServer(KeyValueStore.Iface): # probably need the thrift interface ins
         fixer.start();'''
 
     def get_successor_for_key(self, hashcode):
-        if type(hashcode) == str:
-            hashcode_int = int(float(hashcode));
+        
+        #print "get_successor_for_key ", hashcode;
+        '''if type(hashcode) == str:
+            hashcode_int = int((hashcode));
         else:
             hashcode_int = hashcode;
-            hashcode = str(hashcode);
+            hashcode = str(hashcode);'''
+
+        hashcode_int = int(hashcode);
         if self.successor == self.node_key:
             return self.node_key;
 
@@ -125,18 +129,29 @@ class ChordServer(KeyValueStore.Iface): # probably need the thrift interface ins
         elif hashcode_int > self.hashcode and hashcode_int < get_hash(self.successor):
             return self.successor;
 
-        index = bisect(self.finger_hash_table, hashcode_int);
+        #index = bisect(self.finger_hash_table, hashcode_int);
+        index = self.getIndex(hashcode_int);
+        if index == 0:
+            return self.node_key;
+
         target_node = self.finger_node_table[index - 1];
         if target_node != self.node_key:
             return self.remote_request(self.finger_node_table[index - 1], Operations.GET_SUCCESSOR_FOR_KEY, hashcode);
         else:
             return self.node_key;
 
+    def getIndex(self, hashcode):
+        for i in range(FINGER_TABLE_LENGTH - 1, -1, -1):
+            if (hashcode > self.finger_hash_table[i]):
+                return i + 1;
+        return 0;
+
     def get_init_data(self, hashcode):
-        if type(hashcode) == str:
-            hashcode_int = int(float(hashcode));
+        '''if type(hashcode) == str:
+            hashcode_int = int((hashcode));
         else:
-            hashcode_int = hashcode;
+            hashcode_int = hashcode;'''
+        hashcode_int = int(hashcode);
         # dummy for now.
         data_response = DataResponse();
         data_response.kvstore = {}
@@ -167,7 +182,7 @@ class ChordServer(KeyValueStore.Iface): # probably need the thrift interface ins
             return response;
 
 
-        master_node = self.get_successor_for_key(hashedKey);
+        master_node = self.get_successor_for_key(str(hashedKey));
         return self.remote_request(master_node, Operations.GET, key);
 
     def put(self, key, value):
@@ -219,7 +234,7 @@ class ChordServer(KeyValueStore.Iface): # probably need the thrift interface ins
             return response;
         except Thrift.TException, tx:
             #lock.release();
-            print "Caught exception:", tx.message;
+            print "Caught exception:", tx.message, node_decoded[0], node_decoded[1];
 
     def notify(self, node):
         # TODO: Probably need a check to see if it is truly the predecessor (see Chord)
@@ -251,7 +266,7 @@ class ChordServer(KeyValueStore.Iface): # probably need the thrift interface ins
             #print "Fixing";
         for i in range(0, FINGER_TABLE_LENGTH):
             #sleep(5);
-            hashkey = (self.hashcode + pow(2, i)) % MAX;
+            hashkey = (self.hashcode + int(pow(2, i))) % MAX;
             successor = self.get_successor_for_key(str(hashkey));
             if successor is not None and self.finger_node_table[i] != successor:
                 self.finger_node_table[i] = successor;
