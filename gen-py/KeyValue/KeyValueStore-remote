@@ -4,7 +4,7 @@
 #
 # DO NOT EDIT UNLESS YOU ARE SURE THAT YOU KNOW WHAT YOU ARE DOING
 #
-#  options string: py
+#  options string: py:new_style
 #
 
 import sys
@@ -23,14 +23,12 @@ if len(sys.argv) <= 1 or sys.argv[1] == '--help':
   print 'Usage: ' + sys.argv[0] + ' [-h host[:port]] [-u url] [-f[ramed]] function [arg1 [arg2...]]'
   print ''
   print 'Functions:'
-  print '  string get(string key)'
-  print '  ChordStatus create()'
-  print '  ChordStatus join(string new_node_id)'
-  print '  ChordStatus notify(string notifier_node_id)'
-  print '  ChordStatus find_successor(string key_id)'
-  print '  ChordStatus closest_preceding_node(string key_id)'
-  print '  ChordStatus alive()'
-  print '  ChordStatus predecessor()'
+  print '  GetValueResponse get(string key)'
+  print '  string get_predecessor()'
+  print '  string get_successor_for_key(string key)'
+  print '  DataResponse get_init_data(string hash)'
+  print '  ChordStatus put(string key, string value)'
+  print '  ChordStatus notify(string node)'
   print ''
   sys.exit(0)
 
@@ -88,47 +86,35 @@ if cmd == 'get':
     sys.exit(1)
   pp.pprint(client.get(args[0],))
 
-elif cmd == 'create':
+elif cmd == 'get_predecessor':
   if len(args) != 0:
-    print 'create requires 0 args'
+    print 'get_predecessor requires 0 args'
     sys.exit(1)
-  pp.pprint(client.create())
+  pp.pprint(client.get_predecessor())
 
-elif cmd == 'join':
+elif cmd == 'get_successor_for_key':
   if len(args) != 1:
-    print 'join requires 1 args'
+    print 'get_successor_for_key requires 1 args'
     sys.exit(1)
-  pp.pprint(client.join(args[0],))
+  pp.pprint(client.get_successor_for_key(args[0],))
+
+elif cmd == 'get_init_data':
+  if len(args) != 1:
+    print 'get_init_data requires 1 args'
+    sys.exit(1)
+  pp.pprint(client.get_init_data(args[0],))
+
+elif cmd == 'put':
+  if len(args) != 2:
+    print 'put requires 2 args'
+    sys.exit(1)
+  pp.pprint(client.put(args[0],args[1],))
 
 elif cmd == 'notify':
   if len(args) != 1:
     print 'notify requires 1 args'
     sys.exit(1)
   pp.pprint(client.notify(args[0],))
-
-elif cmd == 'find_successor':
-  if len(args) != 1:
-    print 'find_successor requires 1 args'
-    sys.exit(1)
-  pp.pprint(client.find_successor(args[0],))
-
-elif cmd == 'closest_preceding_node':
-  if len(args) != 1:
-    print 'closest_preceding_node requires 1 args'
-    sys.exit(1)
-  pp.pprint(client.closest_preceding_node(args[0],))
-
-elif cmd == 'alive':
-  if len(args) != 0:
-    print 'alive requires 0 args'
-    sys.exit(1)
-  pp.pprint(client.alive())
-
-elif cmd == 'predecessor':
-  if len(args) != 0:
-    print 'predecessor requires 0 args'
-    sys.exit(1)
-  pp.pprint(client.predecessor())
 
 else:
   print 'Unrecognized method %s' % cmd
