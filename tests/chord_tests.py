@@ -1,7 +1,7 @@
 import multiprocessing
 from nose.tools import *
 from time import sleep
-from server import ChordServer
+from ChordServer import *
 from KeyValue import KeyValueStore
 from KeyValue.ttypes import KeyValueStatus, ChordStatus
 
@@ -28,7 +28,16 @@ def connect(port):
         print "Caught exception:", tx.message
 
 def start_server_with_name_port(name, port):
-    handler = ChordServer(name)
+    handler = ChordServer('localhost', port)
+    processor = KeyValueStore.Processor(handler)
+    transport = TSocket.TServerSocket('localhost', port)
+    tfactory = TTransport.TBufferedTransportFactory()
+    pfactory = TBinaryProtocol.TBinaryProtocolFactory()
+    server = TServer.TThreadedServer(processor, transport, tfactory, pfactory)
+    server.serve()
+
+def add_server_with_name_port(name, port):
+    handler = ChordServer('localhost', port, chord_name=name, chord_port=port)
     processor = KeyValueStore.Processor(handler)
     transport = TSocket.TServerSocket('localhost', port)
     tfactory = TTransport.TBufferedTransportFactory()
@@ -47,31 +56,49 @@ class TestChord:
    
     def test_chord_create(self):
         a = spawn_server("A", 3342)
+        print "Spawned server at: ", a.name, a.pid
         try:
-            with connect(3342) as client:
-                status = client.create()
-            assert status == ChordStatus.OK
+            status = ""
+            with connect(3345) as client:
+                assert type(client) == KeyValueStore.Client
         finally:
             a.terminate()
     
-    def test_chord_join_simple(self):
+    def test_chord_put_and_get(self):
         a = spawn_server("A", 3342)
-        b = spawn_server("B", 3343)
+        print "Spawned server at: ", a.name, a.pid
         try:
-            with connect(3342) as client:
-                status = client.create()
-            assert status == ChordStatus.OK
-     
-            with connect(3343) as client:
-                status = client.join("A")
-                pred_b = client.predecessor()
-            assert status == ChordStatus.OK
-            assert pred_b == "A"
+            status = ""
+            with connect(3345) as client:
+                assert type(client) == KeyValueStore.Client 
+                status = client.put('foo', 'bar')
+                
+                assert status == ChordStatus.OK
+                response = client.get('foo')
 
-            with connect(3342) as client:
-                pred_a = client.predecessor()
-            assert pred_a == "B"
+                assert type(response) == GetValueResponse
+                assert response.status == ChordStatus.OK
+                assert response.value == 'bar'
         finally:
             a.terminate()
-            b.terminate()
+
+    # def test_chord_join_simple(self):
+    #     a = spawn_server("A", 3342)
+    #     b = spawn_server("B", 3343)
+    #     try:
+    #         with connect(3342) as client:
+    #             assert type(client) == KeyValueStore.Client
+
+    #         with connect(3343) as client:
+    #             status = client.join("A")
+    #             pred_b = client.predecessor()
+    #         assert status == ChordStatus.OK
+    #         assert pred_b == "A"
+
+    #         with connect(3342) as client:
+    #             pred_a = client.predecessor()
+    #         assert pred_a == "B"
+    #     finally:
+    #         a.terminate()
+    #         b.terminate()
 
