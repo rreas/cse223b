@@ -3,7 +3,7 @@
 #
 # DO NOT EDIT UNLESS YOU ARE SURE THAT YOU KNOW WHAT YOU ARE DOING
 #
-#  options string: py
+#  options string: py:new_style
 #
 
 from thrift.Thrift import TType, TMessageType, TException, TApplicationException
@@ -16,7 +16,7 @@ except:
   fastbinary = None
 
 
-class KeyValueStatus:
+class KeyValueStatus(object):
   OK = 1
   ERROR = 2
 
@@ -30,7 +30,7 @@ class KeyValueStatus:
     "ERROR": 2,
   }
 
-class ChordStatus:
+class ChordStatus(object):
   OK = 1
   ERROR = 2
 
@@ -44,3 +44,197 @@ class ChordStatus:
     "ERROR": 2,
   }
 
+
+class DataResponse(object):
+  """
+  Attributes:
+   - status
+   - kvstore
+   - finger_node_table
+   - finger_hash_table
+  """
+
+  thrift_spec = (
+    None, # 0
+    (1, TType.I32, 'status', None, None, ), # 1
+    (2, TType.MAP, 'kvstore', (TType.STRING,None,TType.STRING,None), None, ), # 2
+    (3, TType.LIST, 'finger_node_table', (TType.STRING,None), None, ), # 3
+    (4, TType.LIST, 'finger_hash_table', (TType.STRING,None), None, ), # 4
+  )
+
+  def __init__(self, status=None, kvstore=None, finger_node_table=None, finger_hash_table=None,):
+    self.status = status
+    self.kvstore = kvstore
+    self.finger_node_table = finger_node_table
+    self.finger_hash_table = finger_hash_table
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 1:
+        if ftype == TType.I32:
+          self.status = iprot.readI32();
+        else:
+          iprot.skip(ftype)
+      elif fid == 2:
+        if ftype == TType.MAP:
+          self.kvstore = {}
+          (_ktype1, _vtype2, _size0 ) = iprot.readMapBegin() 
+          for _i4 in xrange(_size0):
+            _key5 = iprot.readString();
+            _val6 = iprot.readString();
+            self.kvstore[_key5] = _val6
+          iprot.readMapEnd()
+        else:
+          iprot.skip(ftype)
+      elif fid == 3:
+        if ftype == TType.LIST:
+          self.finger_node_table = []
+          (_etype10, _size7) = iprot.readListBegin()
+          for _i11 in xrange(_size7):
+            _elem12 = iprot.readString();
+            self.finger_node_table.append(_elem12)
+          iprot.readListEnd()
+        else:
+          iprot.skip(ftype)
+      elif fid == 4:
+        if ftype == TType.LIST:
+          self.finger_hash_table = []
+          (_etype16, _size13) = iprot.readListBegin()
+          for _i17 in xrange(_size13):
+            _elem18 = iprot.readString();
+            self.finger_hash_table.append(_elem18)
+          iprot.readListEnd()
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('DataResponse')
+    if self.status is not None:
+      oprot.writeFieldBegin('status', TType.I32, 1)
+      oprot.writeI32(self.status)
+      oprot.writeFieldEnd()
+    if self.kvstore is not None:
+      oprot.writeFieldBegin('kvstore', TType.MAP, 2)
+      oprot.writeMapBegin(TType.STRING, TType.STRING, len(self.kvstore))
+      for kiter19,viter20 in self.kvstore.items():
+        oprot.writeString(kiter19)
+        oprot.writeString(viter20)
+      oprot.writeMapEnd()
+      oprot.writeFieldEnd()
+    if self.finger_node_table is not None:
+      oprot.writeFieldBegin('finger_node_table', TType.LIST, 3)
+      oprot.writeListBegin(TType.STRING, len(self.finger_node_table))
+      for iter21 in self.finger_node_table:
+        oprot.writeString(iter21)
+      oprot.writeListEnd()
+      oprot.writeFieldEnd()
+    if self.finger_hash_table is not None:
+      oprot.writeFieldBegin('finger_hash_table', TType.LIST, 4)
+      oprot.writeListBegin(TType.STRING, len(self.finger_hash_table))
+      for iter22 in self.finger_hash_table:
+        oprot.writeString(iter22)
+      oprot.writeListEnd()
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+
+  def validate(self):
+    return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class GetValueResponse(object):
+  """
+  Attributes:
+   - status
+   - value
+  """
+
+  thrift_spec = (
+    None, # 0
+    (1, TType.I32, 'status', None, None, ), # 1
+    (2, TType.STRING, 'value', None, None, ), # 2
+  )
+
+  def __init__(self, status=None, value=None,):
+    self.status = status
+    self.value = value
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 1:
+        if ftype == TType.I32:
+          self.status = iprot.readI32();
+        else:
+          iprot.skip(ftype)
+      elif fid == 2:
+        if ftype == TType.STRING:
+          self.value = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('GetValueResponse')
+    if self.status is not None:
+      oprot.writeFieldBegin('status', TType.I32, 1)
+      oprot.writeI32(self.status)
+      oprot.writeFieldEnd()
+    if self.value is not None:
+      oprot.writeFieldBegin('value', TType.STRING, 2)
+      oprot.writeString(self.value)
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+
+  def validate(self):
+    return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
