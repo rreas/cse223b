@@ -33,9 +33,10 @@ def get_hash(key):
 
 DELIMITER = ":"
 
-# This is dependent on the hash we use. MD5 creates a 128 bit digest.
-FINGER_TABLE_LENGTH = 128
-MAX = int(pow(2, FINGER_TABLE_LENGTH))
+# This is dependent on the hash we use.
+# MD5 creates a 128 bit digest.
+FINGER_TABLE_LENGTH = 128;
+MAX = pow(2, FINGER_TABLE_LENGTH);
 Operations = enum(
     GET = 1,
     GET_SUCCESSOR_FOR_KEY = 2,
