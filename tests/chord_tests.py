@@ -55,6 +55,7 @@ def spawn_server(name, port, first=False, chord_name=None, chord_port=None):
  
 class TestChord:
    
+    #Test connecting one server-client
     def test_chord_create(self):
         a = spawn_server("A", 3342, first=True)
         print "Spawned server at: ", a.name, a.pid
@@ -65,6 +66,7 @@ class TestChord:
         finally:
             a.terminate()
     
+    #Test get/put for one node
     def test_chord_put_and_get(self):
         a = spawn_server("A", 3342, first=True)
         print "Spawned server at: ", a.name, a.pid
@@ -83,9 +85,13 @@ class TestChord:
         finally:
             a.terminate()
 
+    #Test two nodes, they should be each other's successor, predecessor
     def test_chord_join_simple(self):
         a = spawn_server("A", 3342, first=True)
         b = spawn_server("B", 3343, chord_name="localhost", chord_port=3342)
+        a_key = encode_node('localhost', 3342)
+        b_key = encode_node('localhost', 3343)
+
         print "Spawned server at: ", a.name, a.pid
         print "Spawned server at: ", b.name, b.pid
 
@@ -95,13 +101,16 @@ class TestChord:
                 assert type(client) == KeyValueStore.Client
 
             with connect(3343) as client:
-                #status = client.join("A")
                 pred_b = client.get_predecessor()
-                assert pred_b == encode_node('localhost', 3342)
+                assert pred_b == a_key
+                succ_b = client.get_successor_for_key(b_key)
+                assert succ_b == a_key
 
             with connect(3342) as client:
                 pred_a = client.get_predecessor()
-                assert pred_a == encode_node('localhost', 3343)
+                assert pred_a == b_key
+                succ_a = client.get_successor_for_key(a_key)
+                assert succ_a == b_key
         finally:
             a.terminate()
             b.terminate()
