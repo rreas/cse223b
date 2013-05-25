@@ -59,7 +59,7 @@ class TestChord:
         print "Spawned server at: ", a.name, a.pid
         try:
             status = ""
-            with connect(3345) as client:
+            with connect(3342) as client:
                 assert type(client) == KeyValueStore.Client
         finally:
             a.terminate()
@@ -69,7 +69,7 @@ class TestChord:
         print "Spawned server at: ", a.name, a.pid
         try:
             status = ""
-            with connect(3345) as client:
+            with connect(3342) as client:
                 assert type(client) == KeyValueStore.Client 
                 status = client.put('foo', 'bar')
                 
