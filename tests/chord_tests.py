@@ -30,11 +30,8 @@ def connect(port):
 def encode_node(hostname, port):
     return hostname + ":" + str(port)
 
-def start_server_with_name_port(name, port, first=False, chord_name=None, chord_port=None):
-    if first:
-        handler = ChordServer('localhost', port)
-    else:
-        handler = ChordServer('localhost', port, chord_name=chord_name, chord_port=chord_port)
+def start_server_with_name_port(name, port, chord_name=None, chord_port=None):
+    handler = ChordServer('localhost', port, chord_name, chord_port)
     processor = KeyValueStore.Processor(handler)
     transport = TSocket.TServerSocket('localhost', port)
     tfactory = TTransport.TBufferedTransportFactory()
@@ -42,13 +39,9 @@ def start_server_with_name_port(name, port, first=False, chord_name=None, chord_
     server = TServer.TThreadedServer(processor, transport, tfactory, pfactory)
     server.serve()
 
-def spawn_server(name, port, first=False, chord_name=None, chord_port=None):
-    if first:
-        p = multiprocessing.Process(target=start_server_with_name_port,
-            args=(name, port, True))
-    else:
-        p = multiprocessing.Process(target=start_server_with_name_port,
-            args=(name, port, False, chord_name, chord_port))
+def spawn_server(name, port, chord_name=None, chord_port=None):
+    p = multiprocessing.Process(target=start_server_with_name_port,
+            args=(name, port, chord_name, chord_port))
     p.start()
     sleep(1)
     return p
@@ -57,7 +50,7 @@ class TestChord:
    
     #Test connecting one server-client
     def test_chord_create(self):
-        a = spawn_server("A", 3342, first=True)
+        a = spawn_server("A", 3342)
         print "Spawned server at: ", a.name, a.pid
         try:
             status = ""
@@ -68,7 +61,7 @@ class TestChord:
     
     #Test get/put for one node
     def test_chord_put_and_get(self):
-        a = spawn_server("A", 3342, first=True)
+        a = spawn_server("A", 3342)
         print "Spawned server at: ", a.name, a.pid
         try:
             status = ""
@@ -87,7 +80,7 @@ class TestChord:
 
     #Test two nodes, they should be each other's successor, predecessor
     def test_chord_join_simple(self):
-        a = spawn_server("A", 3342, first=True)
+        a = spawn_server("A", 3342)
         b = spawn_server("B", 3343, chord_name="localhost", chord_port=3342)
         a_key = encode_node('localhost', 3342)
         b_key = encode_node('localhost', 3343)

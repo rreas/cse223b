@@ -52,7 +52,7 @@ class ChordServer(KeyValueStore.Iface): # probably need the thrift interface ins
     
     # If chord_name and chord_port are not given, this is the first node in Chord ring.
     # Otherwise, connect to the chord server to find the position.
-    def __init__(self, hostname, port, chord_name = None, chord_port = None):
+    def __init__(self, hostname, port, chord_name=None, chord_port=None):
         #initialize data structures
         self.hostname = hostname
         self.port = port
