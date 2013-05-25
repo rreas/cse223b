@@ -27,8 +27,14 @@ def connect(port):
     except Thrift.TException, tx:
         print "Caught exception:", tx.message
 
-def start_server_with_name_port(name, port):
-    handler = ChordServer('localhost', port)
+def encode_node(hostname, port):
+    return hostname + ":" + str(port)
+
+def start_server_with_name_port(name, port, first=False, chord_name=None, chord_port=None):
+    if first:
+        handler = ChordServer('localhost', port)
+    else:
+        handler = ChordServer('localhost', port, chord_name=chord_name, chord_port=chord_port)
     processor = KeyValueStore.Processor(handler)
     transport = TSocket.TServerSocket('localhost', port)
     tfactory = TTransport.TBufferedTransportFactory()
@@ -36,18 +42,13 @@ def start_server_with_name_port(name, port):
     server = TServer.TThreadedServer(processor, transport, tfactory, pfactory)
     server.serve()
 
-def add_server_with_name_port(name, port):
-    handler = ChordServer('localhost', port, chord_name=name, chord_port=port)
-    processor = KeyValueStore.Processor(handler)
-    transport = TSocket.TServerSocket('localhost', port)
-    tfactory = TTransport.TBufferedTransportFactory()
-    pfactory = TBinaryProtocol.TBinaryProtocolFactory()
-    server = TServer.TThreadedServer(processor, transport, tfactory, pfactory)
-    server.serve()
-
-def spawn_server(name, port):
-    p = multiprocessing.Process(target=start_server_with_name_port,
-            args=(name, port))
+def spawn_server(name, port, first=False, chord_name=None, chord_port=None):
+    if first:
+        p = multiprocessing.Process(target=start_server_with_name_port,
+            args=(name, port, True))
+    else:
+        p = multiprocessing.Process(target=start_server_with_name_port,
+            args=(name, port, False, chord_name, chord_port))
     p.start()
     sleep(1)
     return p
@@ -55,7 +56,7 @@ def spawn_server(name, port):
 class TestChord:
    
     def test_chord_create(self):
-        a = spawn_server("A", 3342)
+        a = spawn_server("A", 3342, first=True)
         print "Spawned server at: ", a.name, a.pid
         try:
             status = ""
@@ -65,14 +66,14 @@ class TestChord:
             a.terminate()
     
     def test_chord_put_and_get(self):
-        a = spawn_server("A", 3342)
+        a = spawn_server("A", 3342, first=True)
         print "Spawned server at: ", a.name, a.pid
         try:
             status = ""
             with connect(3342) as client:
                 assert type(client) == KeyValueStore.Client 
                 status = client.put('foo', 'bar')
-                
+
                 assert status == ChordStatus.OK
                 response = client.get('foo')
 
@@ -82,23 +83,26 @@ class TestChord:
         finally:
             a.terminate()
 
-    # def test_chord_join_simple(self):
-    #     a = spawn_server("A", 3342)
-    #     b = spawn_server("B", 3343)
-    #     try:
-    #         with connect(3342) as client:
-    #             assert type(client) == KeyValueStore.Client
+    def test_chord_join_simple(self):
+        a = spawn_server("A", 3342, first=True)
+        b = spawn_server("B", 3343, chord_name="localhost", chord_port=3342)
+        print "Spawned server at: ", a.name, a.pid
+        print "Spawned server at: ", b.name, b.pid
 
-    #         with connect(3343) as client:
-    #             status = client.join("A")
-    #             pred_b = client.predecessor()
-    #         assert status == ChordStatus.OK
-    #         assert pred_b == "A"
+        try:
+            status = ""
+            with connect(3342) as client:
+                assert type(client) == KeyValueStore.Client
 
-    #         with connect(3342) as client:
-    #             pred_a = client.predecessor()
-    #         assert pred_a == "B"
-    #     finally:
-    #         a.terminate()
-    #         b.terminate()
+            with connect(3343) as client:
+                #status = client.join("A")
+                pred_b = client.get_predecessor()
+                assert pred_b = encode_node('localhost', 3342)
+
+            with connect(3342) as client:
+                pred_a = client.get_predecessor()
+                assert pred_a = encode_node('localhost', 3343)
+        finally:
+            a.terminate()
+            b.terminate()
 
