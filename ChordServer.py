@@ -22,7 +22,6 @@ from helpers import *
 # MD5 creates a 128 bit digest.
 FINGER_TABLE_LENGTH = 128
 MAX = pow(2, FINGER_TABLE_LENGTH)
-lock = threading2.Lock()
 
 class ChordServer(KeyValueStore.Iface): # probably need the thrift interface inside the parantheses here.
     
