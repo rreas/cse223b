@@ -1,12 +1,9 @@
 import sys
 sys.path.append('./gen-py')
-from hashlib import md5
-from bisect import bisect
 from time import sleep
 from math import pow
 
 # Thrift imports
-from thrift import Thrift
 from thrift.transport import TSocket
 from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
@@ -25,7 +22,7 @@ MAX = long(pow(2, FINGER_TABLE_LENGTH))
 
 # probably need the thrift interface inside the parantheses here.
 class ChordServer(KeyValueStore.Iface):
-    
+
     # If chord_name and chord_port are not given, this is the first node in Chord ring.
     # Otherwise, connect to the chord server to find the position.
     def __init__(self, hostname, port, chord_name=None, chord_port=None):
@@ -55,7 +52,6 @@ class ChordServer(KeyValueStore.Iface):
             self.initialize_finger_tables()
 
         self.initialize_threads()
-        
 
     def initialize(self):
         with remote(self.successor) as client:
@@ -84,7 +80,7 @@ class ChordServer(KeyValueStore.Iface):
             self.finger_hash_table.append(self.hashcode)
 
     def initialize_threads(self):
-        stabilizer = threading2.Thread(target = self.stabilize)
+        stabilizer = threading2.Thread(target=self.stabilize)
         stabilizer.daemon = True
         stabilizer.start()
 
@@ -93,7 +89,6 @@ class ChordServer(KeyValueStore.Iface):
         fixer.start()'''
 
     def get_successor_for_key(self, hashcode):
-
         #print "get_successor_for_key ", hashcode
         '''if type(hashcode) == str:
             hashcode_int = int((hashcode))
@@ -136,7 +131,6 @@ class ChordServer(KeyValueStore.Iface):
             hashcode_int = int((hashcode))
         else:
             hashcode_int = hashcode'''
-        hashcode_int = int(hashcode)
         # dummy for now.
         data_response = DataResponse()
         data_response.kvstore = {}
@@ -148,10 +142,9 @@ class ChordServer(KeyValueStore.Iface):
         data_response.status = ChordStatus.OK
         return data_response
 
-
     def get_predecessor(self):
         return str(self.predecessor)
-        
+    
     def get_successor(self):
         return str(self.successor)
 
@@ -200,6 +193,7 @@ class ChordServer(KeyValueStore.Iface):
 
     def notify(self, node):
         # TODO: Probably need a check to see if it is truly the predecessor (see Chord)
+        print "%s thinks it is our predecessor" % (node)
         self.predecessor = node
         return ChordStatus.OK
 
@@ -214,10 +208,10 @@ class ChordServer(KeyValueStore.Iface):
                 x = self.predecessor
 
             if x is not None and x != self.node_key:
-                # TODO: Do we need better checks or does it get stabilized eventually to the right node.  
+                # TODO: Do we need better checks or does it get stabilized eventually to the right node.
                 # print "New successor ", x
                 self.successor = x
-                print "notifying %s that it is our successor" %(x)
+                print "notifying %s that it is our successor" % (x)
                 with remote(x) as client:
                     status = client.notify(self.node_key)
                 # TODO check status and take action.
