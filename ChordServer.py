@@ -21,9 +21,10 @@ from helpers import *
 # This is dependent on the hash we use.
 # MD5 creates a 128 bit digest.
 FINGER_TABLE_LENGTH = 128
-MAX = pow(2, FINGER_TABLE_LENGTH)
+MAX = long(pow(2, FINGER_TABLE_LENGTH))
 
-class ChordServer(KeyValueStore.Iface): # probably need the thrift interface inside the parantheses here.
+# probably need the thrift interface inside the parantheses here.
+class ChordServer(KeyValueStore.Iface):
     
     # If chord_name and chord_port are not given, this is the first node in Chord ring.
     # Otherwise, connect to the chord server to find the position.
@@ -38,6 +39,7 @@ class ChordServer(KeyValueStore.Iface): # probably need the thrift interface ins
         self.finger_hash_table = []
         self.finger_node_table = []
         self.hashcode = get_hash(self.node_key)
+        self.lock = threading2.Lock()
 
         # Join an existing chord ring.
         if chord_name is not None:
@@ -91,7 +93,7 @@ class ChordServer(KeyValueStore.Iface): # probably need the thrift interface ins
         fixer.start()'''
 
     def get_successor_for_key(self, hashcode):
-        
+
         #print "get_successor_for_key ", hashcode
         '''if type(hashcode) == str:
             hashcode_int = int((hashcode))
@@ -148,58 +150,63 @@ class ChordServer(KeyValueStore.Iface): # probably need the thrift interface ins
 
 
     def get_predecessor(self):
-        return self.predecessor
+        return str(self.predecessor)
         
     def get_successor(self):
-        return self.successor
+        return str(self.successor)
 
-    def get(self, key):
+    def get_cached_old(self, key):
         hashedKey = get_hash(key)
         #print "Key ", hashedKey
         # If the key is present locally, retrieve the value (even if the local node is a replica)
         # Else, get it from the node we deem to be the master.
         response = GetValueResponse()
+
         if key in self.kvstore:
             response.status = ChordStatus.OK
             response.value = self.kvstore[key]
             return response
 
-
         master_node = self.get_successor_for_key(str(hashedKey))
         with remote(master_node) as client:
             return client.get(key)
 
-    def put(self, key, value):
-        # If there is no one else, forever alone, me gusta.
-        if self.successor == self.node_key:
-            self.kvstore[key] = value
-            return ChordStatus.OK
+    def get(self, key):
+        master_node = self.get_successor_for_key(str(get_hash(key)))
 
-        hashedKey = get_hash(key)
-        # Does it belong to the local node?
-        '''if hashedKey <= self.hashcode and hashedKey > get_hash(self.predecessor):
-            self.kvstore[key] = value
-            return ChordStatus.OK'''
+        if master_node == self.node_key:
+            response = GetValueResponse()
+            with self.lock:
+                response.value = self.kvstore[key]
+            response.status = ChordStatus.OK
+            return response
 
-        master_node = self.get_successor_for_key(str(hashedKey))
-        if master_node != self.node_key:
+        else:
             with remote(master_node) as client:
-                return client.put(key, value)
+                return client.get(key)
 
-        #print "Putting key", key
-        self.kvstore[key] = value
-        return ChordStatus.OK
+    def put(self, key, value):
+        master_node = self.get_successor_for_key(str(get_hash(key)))
+
+        if master_node == self.node_key:
+            with self.lock:
+                self.kvstore[key] = value
+            return ChordStatus.OK
+        
+        else:
+            with remote(master_node) as client:
+                status = client.put(key,value)
+            return status
 
     def notify(self, node):
         # TODO: Probably need a check to see if it is truly the predecessor (see Chord)
-        print "%s thinks it is our predecessor" %(node)
         self.predecessor = node
         return ChordStatus.OK
 
     def stabilize(self):
         while True:
             sleep(3)
-            #print "Stabilizing"
+
             if self.successor != self.node_key:
                 with remote(self.successor) as client:
                     x = client.get_predecessor()
@@ -223,8 +230,9 @@ class ChordServer(KeyValueStore.Iface): # probably need the thrift interface ins
             #print "Fixing"
         for i in range(0, FINGER_TABLE_LENGTH):
             #sleep(5)
-            hashkey = (self.hashcode + int(pow(2, i))) % MAX
+            hashkey = (self.hashcode + long(pow(2, i))) % MAX
             successor = self.get_successor_for_key(str(hashkey))
+
             if successor is not None and self.finger_node_table[i] != successor:
                 self.finger_node_table[i] = successor
                 self.finger_hash_table[i] = get_hash(self.finger_node_table[i])

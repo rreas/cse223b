@@ -13,22 +13,17 @@ from thrift.protocol import TBinaryProtocol
 from thrift.server import TServer
 
 from contextlib import contextmanager
+from helpers import encode_node
 
 @contextmanager
 def connect(port):
-    try:
-        transport = TTransport.TBufferedTransport(
-                TSocket.TSocket('localhost', port))
-        protocol = TBinaryProtocol.TBinaryProtocol(transport)
-        client = KeyValueStore.Client(protocol)
-        transport.open()
-        yield client
-        transport.close()
-    except Thrift.TException, tx:
-        print "Caught exception:", tx.message
-
-def encode_node(hostname, port):
-    return hostname + ":" + str(port)
+    transport = TTransport.TBufferedTransport(
+            TSocket.TSocket('localhost', port))
+    protocol = TBinaryProtocol.TBinaryProtocol(transport)
+    client = KeyValueStore.Client(protocol)
+    transport.open()
+    yield client
+    transport.close()
 
 def start_server_with_name_port(name, port, chord_name=None, chord_port=None):
     handler = ChordServer('localhost', port, chord_name, chord_port)
@@ -84,8 +79,8 @@ class TestChord:
         a_key = encode_node('localhost', 3342)
         b_key = encode_node('localhost', 3343)
 
-        print "Spawned server at: ", a.name, a.pid
-        print "Spawned server at: ", b.name, b.pid
+        # Time for stabilize to run.
+        sleep(3)
 
         try:
             with connect(3342) as client:
@@ -94,14 +89,26 @@ class TestChord:
             with connect(3343) as client:
                 pred_b = client.get_predecessor()
                 assert pred_b == a_key
-                succ_b = client.get_successor_for_key(b_key)
+                succ_b = client.get_successor_for_key(str(get_hash(b_key)))
                 assert succ_b == a_key
+                status = client.put('keya', 'valuea')
+                assert status == ChordStatus.OK
 
             with connect(3342) as client:
                 pred_a = client.get_predecessor()
                 assert pred_a == b_key
-                succ_a = client.get_successor_for_key(a_key)
-                assert succ_a == b_key
+                succ_a = client.get_successor_for_key(str(get_hash(a_key)))
+                assert succ_a == a_key
+                status = client.put('keyb', 'valueb')
+                assert status == ChordStatus.OK
+
+            for portno in [3342, 3343]:
+                with connect(portno) as client:
+                    resp = client.get('keya')
+                    assert resp.value == 'valuea'
+                    resp = client.get('keyb')
+                    assert resp.value == 'valueb'
+
         finally:
             a.terminate()
             b.terminate()
