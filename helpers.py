@@ -12,14 +12,11 @@ from KeyValue.ttypes import *
 
 DELIMITER = ":"
 
-
 def decode_node(node_key):
     return node_key.split(DELIMITER)
 
-
 def encode_node(hostname, port):
     return hostname + DELIMITER + str(port)
-
 
 def get_hash(key):
     return int(md5(key).hexdigest(), 16)
@@ -38,3 +35,4 @@ def remote(node):
         transport.close()
     except Thrift.TException, tx:
         print "Caught exception:", tx.message, node_decoded[0], node_decoded[1]
+

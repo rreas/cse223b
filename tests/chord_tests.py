@@ -25,7 +25,7 @@ def connect(port):
     yield client
     transport.close()
 
-def start_server_with_name_port(name, port, chord_name=None, chord_port=None):
+def start_server_with_name_port(port, chord_name=None, chord_port=None):
     handler = ChordServer('localhost', port, chord_name, chord_port)
     processor = KeyValueStore.Processor(handler)
     transport = TSocket.TServerSocket('localhost', port)
@@ -34,9 +34,9 @@ def start_server_with_name_port(name, port, chord_name=None, chord_port=None):
     server = TServer.TThreadedServer(processor, transport, tfactory, pfactory)
     server.serve()
 
-def spawn_server(name, port, chord_name=None, chord_port=None):
+def spawn_server(port, chord_name=None, chord_port=None):
     p = multiprocessing.Process(target=start_server_with_name_port,
-            args=(name, port, chord_name, chord_port))
+            args=(port, chord_name, chord_port))
     p.start()
     sleep(1)
     return p
@@ -45,7 +45,7 @@ class TestChord:
    
     #Test connecting one server-client
     def test_chord_create(self):
-        a = spawn_server("A", 3342)
+        a = spawn_server(3342)
         print "Spawned server at: ", a.name, a.pid
         try:
             with connect(3342) as client:
@@ -55,7 +55,7 @@ class TestChord:
     
     #Test get/put for one node
     def test_chord_put_and_get(self):
-        a = spawn_server("A", 3342)
+        a = spawn_server(3342)
         print "Spawned server at: ", a.name, a.pid
         try:
             status = ""
@@ -74,8 +74,8 @@ class TestChord:
 
     #Test two nodes, they should be each other's successor, predecessor
     def test_chord_join_simple(self):
-        a = spawn_server("A", 3342)
-        b = spawn_server("B", 3343, chord_name="localhost", chord_port=3342)
+        a = spawn_server(3342)
+        b = spawn_server(3343, chord_name="localhost", chord_port=3342)
         a_key = encode_node('localhost', 3342)
         b_key = encode_node('localhost', 3343)
 
@@ -112,4 +112,41 @@ class TestChord:
         finally:
             a.terminate()
             b.terminate()
+
+    def test_crash_some_servers(self):
+        servers = {
+                3342: spawn_server(3342),
+                3343: spawn_server(3343,
+                                   chord_name="localhost",
+                                   chord_port=3342),
+                3344: spawn_server(3344,
+                                   chord_name="localhost",
+                                   chord_port=3342),
+                3345: spawn_server(3345,
+                                   chord_name="localhost",
+                                   chord_port=3342),
+                3346: spawn_server(3346,
+                                   chord_name="localhost",
+                                   chord_port=3342)}
+        sleep(5)
+
+        try:
+            with connect(3342) as client:
+                client.put('connie', 'lol')
+                client.put('rakesh', 'lol++')
+                key = client.get_successor_for_key(str(get_hash('connie')))
+                port = int(key.split(":")[1])
+                resp = client.get('connie')
+                assert resp.value == 'lol'
+
+                servers[port].terminate()
+                del servers[port]
+                resp = client.get('connie')
+                assert resp.value == 'lol'
+
+        finally:
+            for port, name in servers.items():
+                name.terminate()
+
+
 

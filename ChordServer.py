@@ -188,7 +188,7 @@ class ChordServer(KeyValueStore.Iface):
         
         else:
             with remote(master_node) as client:
-                status = client.put(key,value)
+                status = client.put(key, value)
             return status
 
     def notify(self, node):
