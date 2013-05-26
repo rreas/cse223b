@@ -29,6 +29,7 @@ if len(sys.argv) <= 1 or sys.argv[1] == '--help':
   print '  DataResponse get_init_data(string hash)'
   print '  ChordStatus put(string key, string value)'
   print '  ChordStatus notify(string node)'
+  print '  ChordStatus replicate(string key, string value, string source)'
   print ''
   sys.exit(0)
 
@@ -115,6 +116,12 @@ elif cmd == 'notify':
     print 'notify requires 1 args'
     sys.exit(1)
   pp.pprint(client.notify(args[0],))
+
+elif cmd == 'replicate':
+  if len(args) != 3:
+    print 'replicate requires 3 args'
+    sys.exit(1)
+  pp.pprint(client.replicate(args[0],args[1],args[2],))
 
 else:
   print 'Unrecognized method %s' % cmd
