@@ -39,6 +39,9 @@ class ChordServer(KeyValueStore.Iface):
             assert(chord_port is not None)
             remote_node = encode_node(chord_name, chord_port)
             with remote(remote_node) as client:
+                if client is None:
+                    print "Unable to contact successor, exiting..."
+                    os._exit(1)
                 self.successor = client.get_successor_for_key(
                         str(self.hashcode))
 
@@ -53,6 +56,9 @@ class ChordServer(KeyValueStore.Iface):
         the current node should be able to serve the keys that it owns and also 
         have a successor_list to work with'''
         with remote(self.successor) as client:
+            if client is None:
+                print "Unable to contact successor for init_data, exiting.."
+                os._exit(1)
             data_response = client.get_init_data(str(self.hashcode))
 
         self.kvstore = data_response.kvstore
@@ -65,6 +71,9 @@ class ChordServer(KeyValueStore.Iface):
 
         # TODO: check status?
         with remote(self.successor) as client:
+            if client is None:
+                print "Unable to notify successor during init, exiting.."
+                os._exit(1)
             status = client.notify(self.node_key)
 
     def initialize_threads(self):
@@ -92,12 +101,11 @@ class ChordServer(KeyValueStore.Iface):
             return self.successor
 
         # Pass the buck to the successor and let it find the master.
-        try:
-            with remote(self.successor) as client:
-                return client.get_successor_for_key(hashcode)
-        except RuntimeError:
-            self.handle_successor_failure()
-            return None
+        with remote(self.successor) as client:
+            if client is None:
+                self.handle_successor_failure()
+                return None
+            return client.get_successor_for_key(hashcode)
 
     def get_init_data(self, hashcode):
         ''' Provide the data required by a new server to be able to serve keys
@@ -135,15 +143,13 @@ class ChordServer(KeyValueStore.Iface):
             return response
 
         else:
-
-            try:
-                with remote(master_node) as client:
-                    return client.get(key)
-            except RuntimeError:
-                self.handle_successor_failure()
-                response = GetValueResponse()
-                response.status = ChordStatus.ERROR
-                return response
+            with remote(master_node) as client:
+                if client is None:
+                    self.handle_successor_failure()
+                    response = GetValueResponse()
+                    response.status = ChordStatus.ERROR
+                    return response
+                return client.get(key)
 
     def put(self, key, value):
         ''' Find the master node and store the key, value there.'''
@@ -153,15 +159,16 @@ class ChordServer(KeyValueStore.Iface):
         if master_node == self.node_key:
             with self.lock:
                 self.kvstore[key] = value
+
             return ChordStatus.OK  
         else:
-            try:
-                with remote(master_node) as client:
-                    status = client.put(key, value)
-                    return status
-            except RuntimeError:
-                self.handle_successor_failure()
-                return ChordStatus.ERROR
+            with remote(master_node) as client:
+                if client is None:
+                    self.handle_successor_failure()
+                    return ChordStatus.ERROR
+
+                status = client.put(key, value)
+                return status
 
 
     def notify(self, node):
@@ -181,12 +188,11 @@ class ChordServer(KeyValueStore.Iface):
             sleep(3)
 
             if self.successor != self.node_key:
-                try:
-                    with remote(self.successor) as client:
-                        x = client.get_predecessor()
-                except RuntimeError:
-                    print "Successor Failed"
-                    self.handle_successor_failure()
+                with remote(self.successor) as client:
+                    if client is None:
+                        self.handle_successor_failure()
+                        continue
+                    x = client.get_predecessor()
             else:
                 x = self.predecessor
 
@@ -194,21 +200,26 @@ class ChordServer(KeyValueStore.Iface):
                 if self.successor != x:
                     ''' A new node joined the ring and is the current node's successor.
                     This requires updating the successor_list.'''
-                    self.successor = x
                     with remote(x) as client:
+                        if client is None:
+                            # TODO: what do we do here? The current node heard about a new successor,
+                            # was unable to contact it. For now, doing nothing and continuing as if 
+                            # the new node did not join.
+                            continue
+                        self.successor = x
                         status = client.notify(self.node_key)
                     # TODO check status and take action.
 
             if self.successor != self.node_key:
-                try:
-                    with remote(self.successor) as client:
-                        response = client.get_successor_list()
-                    # Get updated successor_list from successor and make adjustments.
-                    self.successor_list = response.successor_list
-                    del self.successor_list[len(self.successor_list) - 1]
-                    self.successor_list.insert(0, self.successor)
-                except RuntimeError:
+                with remote(self.successor) as client:
+                    if client is None:
                         self.handle_successor_failure()
+                        continue
+                    response = client.get_successor_list()
+                # Get updated successor_list from successor and make adjustments.
+                self.successor_list = response.successor_list
+                del self.successor_list[len(self.successor_list) - 1]
+                self.successor_list.insert(0, self.successor)
 
                     
             self.print_details()
@@ -224,14 +235,16 @@ class ChordServer(KeyValueStore.Iface):
             # print "Trying ", self.successor_list[i]
             if self.successor_list[i] == self.node_key:
                 continue
-            try:
-                with remote(self.successor_list[i]) as client:
-                    response = client.get_successor_list()
-            except RuntimeError:
-                continue
+
+            with remote(self.successor_list[i]) as client:
+                if client is None:
+                    continue
+                response = client.get_successor_list()
 
             self.successor = self.successor_list[i]
             with remote(self.successor) as client:
+                if client is None:
+                    continue
                 client.notify(self.node_key)
 
             self.successor_list = response.successor_list
