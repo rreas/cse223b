@@ -11,8 +11,7 @@ enum ChordStatus {
 struct DataResponse {
   1: ChordStatus status,
   2: map<string, string> kvstore,
-  3: list<string> finger_node_table,
-  4: list<string> finger_hash_table
+  3: list<string> successor_list
 }
 
 struct GetValueResponse {
@@ -20,13 +19,18 @@ struct GetValueResponse {
   2: string value
 }
 
+struct SuccessorListResponse {
+  1: ChordStatus status,
+  2: list<string> successor_list
+}
+
 service KeyValueStore {
   GetValueResponse get(1: string key),
   string get_predecessor(),
   string get_successor_for_key(1: string key),
+  SuccessorListResponse get_successor_list(),
   DataResponse get_init_data(1: string hash),
   ChordStatus put(1: string key, 2: string value),
   ChordStatus notify(1: string node)
-  ChordStatus replicate(1: string key, 2: string value, 3: string source)
 }
 

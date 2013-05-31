@@ -1,4 +1,4 @@
-import sys
+import sys,os
 sys.path.append('./gen-py')
 from time import sleep
 from math import pow
@@ -16,12 +16,8 @@ from KeyValue import KeyValueStore
 from KeyValue.ttypes import *
 from helpers import *
 
-# This is dependent on the hash we use.
-# MD5 creates a 128 bit digest.
-FINGER_TABLE_LENGTH = 128
-MAX = long(pow(2, FINGER_TABLE_LENGTH))
-
-# probably need the thrift interface inside the parantheses here.
+# The number of successive server failures that can be tolerated.
+SUCCESSOR_LIST_LENGTH = 5
 class ChordServer(KeyValueStore.Iface):
 
     # If chord_name and chord_port are not given, this is the first node in Chord ring.
@@ -35,12 +31,10 @@ class ChordServer(KeyValueStore.Iface):
         self.replicas = defaultdick(dict)
         self.successor = self.node_key
         self.predecessor = None
-        self.finger_hash_table = []
-        self.finger_node_table = []
+        self.successor_list = []
         self.hashcode = get_hash(self.node_key)
         self.lock = threading2.Lock()
-
-        # Join an existing chord ring.
+        # Join an existing chord ring. Start by obtaining the successor.
         if chord_name is not None:
             assert(chord_port is not None)
             remote_node = encode_node(chord_name, chord_port)
@@ -50,123 +44,87 @@ class ChordServer(KeyValueStore.Iface):
 
             self.initialize()
         else:
-            # There is no finger table to borrow, so create one.
-            self.initialize_finger_tables()
-
+            self.initialize_successor_list()
         self.initialize_threads()
+        
 
     def initialize(self):
+        ''' Get the initial data from the successor. Once this method completes,
+        the current node should be able to serve the keys that it owns and also 
+        have a successor_list to work with'''
         with remote(self.successor) as client:
             data_response = client.get_init_data(str(self.hashcode))
 
-        self.kvstore = (data_response.kvstore)
-        self.build_finger_tables(data_response.finger_hash_table, data_response.finger_node_table)
-        del self.finger_node_table[len(self.finger_node_table) - 1]
-        del self.finger_hash_table[len(self.finger_hash_table) - 1]
-        self.finger_node_table.insert(0, self.successor)
-        self.finger_hash_table.insert(0, get_hash(self.successor))
+        self.kvstore = data_response.kvstore
+        self.successor_list = data_response.successor_list
+
+        # Remove the last entry in the list and add the successor at the beginning 
+        # of the list and list update is complete
+        del self.successor_list[len(self.successor_list) - 1]
+        self.successor_list.insert(0, self.successor)
 
         # TODO: check status?
         with remote(self.successor) as client:
             status = client.notify(self.node_key)
-
-    def build_finger_tables(self, hash_table, node_table):
-        assert(len(hash_table) == len(node_table))
-        for i in range(0, len(hash_table)):
-            self.finger_node_table.append(node_table[i])
-            self.finger_hash_table.append(int(hash_table[i], 16))
-
-    def initialize_finger_tables(self):
-        for i in range(0, FINGER_TABLE_LENGTH):
-            self.finger_node_table.append(self.node_key)
-            self.finger_hash_table.append(self.hashcode)
 
     def initialize_threads(self):
         stabilizer = threading2.Thread(target=self.stabilize)
         stabilizer.daemon = True
         stabilizer.start()
 
-        '''fixer = threading2.Thread(target = self.fix_finger_table)
-        fixer.daemon = True
-        fixer.start()'''
+    def initialize_successor_list(self):
+        ''' If there are no other nodes in Chord, initialize the 
+        successor_list to just the current node'''
+        for i in range(0, SUCCESSOR_LIST_LENGTH):
+            self.successor_list.append(self.node_key)
 
     def get_successor_for_key(self, hashcode):
-        #print "get_successor_for_key ", hashcode
-        '''if type(hashcode) == str:
-            hashcode_int = int((hashcode))
-        else:
-            hashcode_int = hashcode
-            hashcode = str(hashcode)'''
-
+        ''' Given a particular hashed key, find its successor in Chord. 
+        This is O(n). Each node asks its successor to find the master,
+        unless the master is the successor itself.'''
         hashcode_int = int(hashcode)
         if self.successor == self.node_key:
             return self.node_key
 
-        if get_hash(self.successor) < self.hashcode:
-            if hashcode_int > get_hash(self.successor) and hashcode_int > get_hash(self.node_key):
-                return self.successor
-            if hashcode_int < get_hash(self.successor) and hashcode_int < get_hash(self.node_key):
-                return self.successor
-        elif hashcode_int > self.hashcode and hashcode_int < get_hash(self.successor):
+        # If the key is located between the current node and its successor,
+        # just return the successor.
+        if is_key_between(hashcode_int, self.hashcode, get_hash(self.successor)):
             return self.successor
 
-        #index = bisect(self.finger_hash_table, hashcode_int)
-        index = self.getIndex(hashcode_int)
-        if index == 0:
-            return self.node_key
-
-        target_node = self.finger_node_table[index - 1]
-        if target_node != self.node_key:
-            with remote(self.finger_node_table[index - 1]) as client:
+        # Pass the buck to the successor and let it find the master.
+        try:
+            with remote(self.successor) as client:
                 return client.get_successor_for_key(hashcode)
-        else:
-            return self.node_key
-
-    def getIndex(self, hashcode):
-        for i in range(FINGER_TABLE_LENGTH - 1, -1, -1):
-            if (hashcode > self.finger_hash_table[i]):
-                return i + 1
-        return 0
+        except RuntimeError:
+            self.handle_successor_failure()
+            return None
 
     def get_init_data(self, hashcode):
-        '''if type(hashcode) == str:
-            hashcode_int = int((hashcode))
-        else:
-            hashcode_int = hashcode'''
+        ''' Provide the data required by a new server to be able to serve keys
+        and handle server failures'''
+
         # dummy for now.
         data_response = DataResponse()
         data_response.kvstore = {}
-        data_response.finger_node_table = self.finger_node_table
-        data_response.finger_hash_table = []
-        for i in range(0, len(self.finger_hash_table)):
-            data_response.finger_hash_table.append(str(self.finger_hash_table[i]))
-
+        data_response.successor_list = self.successor_list
         data_response.status = ChordStatus.OK
         return data_response
 
     def get_predecessor(self):
         return str(self.predecessor)
+
+    def get_successor_list(self):
+        response = SuccessorListResponse()
+        response.status = ChordStatus.OK
+        response.successor_list = self.successor_list
+        return response
     
     def get_successor(self):
         return str(self.successor)
 
-    def get_cached_old(self, key):
-        hashedKey = get_hash(key)
-        #print "Key ", hashedKey
-        # If the key is present locally, retrieve the value (even if the local node is a replica)
-        # Else, get it from the node we deem to be the master.
-        response = GetValueResponse()
-
-        if key in self.kvstore:
-            response.status = ChordStatus.OK
-            response.value = self.kvstore[key]
-            return response
-
-        master_node = self.get_successor_for_key(str(hashedKey))
-        with remote(master_node) as client:
-            return client.get(key)
-
     def get(self, key):
+        ''' Get the key from the master node. If the current node does not know
+        who the master is, it will ask its successor about it'''
         master_node = self.get_successor_for_key(str(get_hash(key)))
 
         if master_node == self.node_key:
@@ -177,81 +135,113 @@ class ChordServer(KeyValueStore.Iface):
             return response
 
         else:
-            with remote(master_node) as client:
-                return client.get(key)
+
+            try:
+                with remote(master_node) as client:
+                    return client.get(key)
+            except RuntimeError:
+                self.handle_successor_failure()
+                response = GetValueResponse()
+                response.status = ChordStatus.ERROR
+                return response
 
     def put(self, key, value):
+        ''' Find the master node and store the key, value there.'''
+
         master_node = self.get_successor_for_key(str(get_hash(key)))
 
         if master_node == self.node_key:
             with self.lock:
                 self.kvstore[key] = value
-            self.replicate_dat_shit(key, value)
-            return ChordStatus.OK
-        
+            return ChordStatus.OK  
         else:
-            with remote(master_node) as client:
-                status = client.put(key, value)
-            return status
+            try:
+                with remote(master_node) as client:
+                    status = client.put(key, value)
+                    return status
+            except RuntimeError:
+                self.handle_successor_failure()
+                return ChordStatus.ERROR
 
-    def replicate_dat_shit(self, key, value, replicas=1):
-        #Replicate this shit! With thrift RPC replicate call
-        if self.successor == self.node_key:
-            return ChordStatus.OK
-
-        #Else, send to successor
-        with remote(self.successor) as client:
-            status = client.replicate(key, value, self.node_key)
-            return status
-
-    def replicate(self, key, value, source):
-        with self.lock:
-            #Store in our replicas dict
-            #self.kvstore[key] = value
-            self.replicas[source][key] = value
-        return ChordStatus.OK
 
     def notify(self, node):
         # TODO: Probably need a check to see if it is truly the predecessor (see Chord)
-        print "%s thinks it is our predecessor" % (node)
         self.predecessor = node
         return ChordStatus.OK
 
     def stabilize(self):
+        ''' Every interval do:
+            1) Find if the current node has a new successor, in case a new node joined 
+            the ring between it and its successor.
+            2) If there is a new successor, notify it and update the successor_list.
+            3) In case the successor has failed, try the next successor in the list and 
+            update attributes.
+        '''
         while True:
             sleep(3)
 
             if self.successor != self.node_key:
-                with remote(self.successor) as client:
-                    x = client.get_predecessor()
+                try:
+                    with remote(self.successor) as client:
+                        x = client.get_predecessor()
+                except RuntimeError:
+                    print "Successor Failed"
+                    self.handle_successor_failure()
             else:
                 x = self.predecessor
 
             if x is not None and x != self.node_key:
-                # TODO: Do we need better checks or does it get stabilized eventually to the right node.
-                # print "New successor ", x
-                self.successor = x
-                print "notifying %s that it is our successor" % (x)
-                with remote(x) as client:
-                    status = client.notify(self.node_key)
-                # TODO check status and take action.
+                if self.successor != x:
+                    ''' A new node joined the ring and is the current node's successor.
+                    This requires updating the successor_list.'''
+                    self.successor = x
+                    with remote(x) as client:
+                        status = client.notify(self.node_key)
+                    # TODO check status and take action.
 
-            self.fix_finger_table()
-            #self.print_details()
+            if self.successor != self.node_key:
+                try:
+                    with remote(self.successor) as client:
+                        response = client.get_successor_list()
+                    # Get updated successor_list from successor and make adjustments.
+                    self.successor_list = response.successor_list
+                    del self.successor_list[len(self.successor_list) - 1]
+                    self.successor_list.insert(0, self.successor)
+                except RuntimeError:
+                        self.handle_successor_failure()
 
-    def fix_finger_table(self):
-        #while True:
-            #print "Fixing"
-        for i in range(0, FINGER_TABLE_LENGTH):
-            #sleep(5)
-            hashkey = (self.hashcode + long(pow(2, i))) % MAX
-            successor = self.get_successor_for_key(str(hashkey))
+                    
+            self.print_details()
+            self.print_successor_list()
 
-            if successor is not None and self.finger_node_table[i] != successor:
-                self.finger_node_table[i] = successor
-                self.finger_hash_table[i] = get_hash(self.finger_node_table[i])
-            #self.f.write(str(hashkey) + "  " + str(i) + "  " + self.finger_node_table[i] + "\n")
-        #self.f.write("===============================\n\n")
+    def handle_successor_failure(self):
+        ''' If the successor has failed/unreachable, the first alive 
+        and reachable node in the successor_list becomes the successor and 
+        the list is updated. If there is no successor, exit'''
+
+        response = ChordStatus.ERROR
+        for i in range(0, len(self.successor_list)):
+            # print "Trying ", self.successor_list[i]
+            if self.successor_list[i] == self.node_key:
+                continue
+            try:
+                with remote(self.successor_list[i]) as client:
+                    response = client.get_successor_list()
+            except RuntimeError:
+                continue
+
+            self.successor = self.successor_list[i]
+            with remote(self.successor) as client:
+                client.notify(self.node_key)
+
+            self.successor_list = response.successor_list
+            del self.successor_list[len(self.successor_list) - 1]
+            self.successor_list.insert(0, self.successor)
+            return
+
+        # TODO either partitioned or there were more than 'r' failures.
+        print "Exiting"
+        os._exit(1)
 
     def print_details(self):
         print "Node_Key ", self.node_key
@@ -259,6 +249,13 @@ class ChordServer(KeyValueStore.Iface):
         print "successor ", self.successor
         print "predecessor ", self.predecessor
         print "===============\n\n"
+
+    def print_successor_list(self):
+        for i in range(0, len(self.successor_list)):
+            print self.successor_list[i]
+        print "=========================\n\n"
+    def ping(self):
+        return ChordStatus.OK
 
 if __name__ == '__main__':
     if len(sys.argv) > 3:
