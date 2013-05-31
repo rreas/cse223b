@@ -221,9 +221,8 @@ class ChordServer(KeyValueStore.Iface):
                 del self.successor_list[len(self.successor_list) - 1]
                 self.successor_list.insert(0, self.successor)
 
-                    
-            self.print_details()
-            self.print_successor_list()
+            #self.print_details()
+            #self.print_successor_list()
 
     def handle_successor_failure(self):
         ''' If the successor has failed/unreachable, the first alive 

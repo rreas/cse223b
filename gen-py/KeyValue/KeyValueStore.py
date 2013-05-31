@@ -28,11 +28,17 @@ class Iface(object):
   def get_predecessor(self, ):
     pass
 
+  def get_successor(self, ):
+    pass
+
   def get_successor_for_key(self, key):
     """
     Parameters:
      - key
     """
+    pass
+
+  def get_successor_list(self, ):
     pass
 
   def get_init_data(self, hash):
@@ -57,13 +63,10 @@ class Iface(object):
     """
     pass
 
-  def replicate(self, key, value, source):
-    """
-    Parameters:
-     - key
-     - value
-     - source
-    """
+  def print_details(self, ):
+    pass
+
+  def print_successor_list(self, ):
     pass
 
 
@@ -129,6 +132,31 @@ class Client(Iface):
       return result.success
     raise TApplicationException(TApplicationException.MISSING_RESULT, "get_predecessor failed: unknown result");
 
+  def get_successor(self, ):
+    self.send_get_successor()
+    return self.recv_get_successor()
+
+  def send_get_successor(self, ):
+    self._oprot.writeMessageBegin('get_successor', TMessageType.CALL, self._seqid)
+    args = get_successor_args()
+    args.write(self._oprot)
+    self._oprot.writeMessageEnd()
+    self._oprot.trans.flush()
+
+  def recv_get_successor(self, ):
+    (fname, mtype, rseqid) = self._iprot.readMessageBegin()
+    if mtype == TMessageType.EXCEPTION:
+      x = TApplicationException()
+      x.read(self._iprot)
+      self._iprot.readMessageEnd()
+      raise x
+    result = get_successor_result()
+    result.read(self._iprot)
+    self._iprot.readMessageEnd()
+    if result.success is not None:
+      return result.success
+    raise TApplicationException(TApplicationException.MISSING_RESULT, "get_successor failed: unknown result");
+
   def get_successor_for_key(self, key):
     """
     Parameters:
@@ -158,6 +186,31 @@ class Client(Iface):
     if result.success is not None:
       return result.success
     raise TApplicationException(TApplicationException.MISSING_RESULT, "get_successor_for_key failed: unknown result");
+
+  def get_successor_list(self, ):
+    self.send_get_successor_list()
+    return self.recv_get_successor_list()
+
+  def send_get_successor_list(self, ):
+    self._oprot.writeMessageBegin('get_successor_list', TMessageType.CALL, self._seqid)
+    args = get_successor_list_args()
+    args.write(self._oprot)
+    self._oprot.writeMessageEnd()
+    self._oprot.trans.flush()
+
+  def recv_get_successor_list(self, ):
+    (fname, mtype, rseqid) = self._iprot.readMessageBegin()
+    if mtype == TMessageType.EXCEPTION:
+      x = TApplicationException()
+      x.read(self._iprot)
+      self._iprot.readMessageEnd()
+      raise x
+    result = get_successor_list_result()
+    result.read(self._iprot)
+    self._iprot.readMessageEnd()
+    if result.success is not None:
+      return result.success
+    raise TApplicationException(TApplicationException.MISSING_RESULT, "get_successor_list failed: unknown result");
 
   def get_init_data(self, hash):
     """
@@ -251,39 +304,51 @@ class Client(Iface):
       return result.success
     raise TApplicationException(TApplicationException.MISSING_RESULT, "notify failed: unknown result");
 
-  def replicate(self, key, value, source):
-    """
-    Parameters:
-     - key
-     - value
-     - source
-    """
-    self.send_replicate(key, value, source)
-    return self.recv_replicate()
+  def print_details(self, ):
+    self.send_print_details()
+    self.recv_print_details()
 
-  def send_replicate(self, key, value, source):
-    self._oprot.writeMessageBegin('replicate', TMessageType.CALL, self._seqid)
-    args = replicate_args()
-    args.key = key
-    args.value = value
-    args.source = source
+  def send_print_details(self, ):
+    self._oprot.writeMessageBegin('print_details', TMessageType.CALL, self._seqid)
+    args = print_details_args()
     args.write(self._oprot)
     self._oprot.writeMessageEnd()
     self._oprot.trans.flush()
 
-  def recv_replicate(self, ):
+  def recv_print_details(self, ):
     (fname, mtype, rseqid) = self._iprot.readMessageBegin()
     if mtype == TMessageType.EXCEPTION:
       x = TApplicationException()
       x.read(self._iprot)
       self._iprot.readMessageEnd()
       raise x
-    result = replicate_result()
+    result = print_details_result()
     result.read(self._iprot)
     self._iprot.readMessageEnd()
-    if result.success is not None:
-      return result.success
-    raise TApplicationException(TApplicationException.MISSING_RESULT, "replicate failed: unknown result");
+    return
+
+  def print_successor_list(self, ):
+    self.send_print_successor_list()
+    self.recv_print_successor_list()
+
+  def send_print_successor_list(self, ):
+    self._oprot.writeMessageBegin('print_successor_list', TMessageType.CALL, self._seqid)
+    args = print_successor_list_args()
+    args.write(self._oprot)
+    self._oprot.writeMessageEnd()
+    self._oprot.trans.flush()
+
+  def recv_print_successor_list(self, ):
+    (fname, mtype, rseqid) = self._iprot.readMessageBegin()
+    if mtype == TMessageType.EXCEPTION:
+      x = TApplicationException()
+      x.read(self._iprot)
+      self._iprot.readMessageEnd()
+      raise x
+    result = print_successor_list_result()
+    result.read(self._iprot)
+    self._iprot.readMessageEnd()
+    return
 
 
 class Processor(Iface, TProcessor):
@@ -292,11 +357,14 @@ class Processor(Iface, TProcessor):
     self._processMap = {}
     self._processMap["get"] = Processor.process_get
     self._processMap["get_predecessor"] = Processor.process_get_predecessor
+    self._processMap["get_successor"] = Processor.process_get_successor
     self._processMap["get_successor_for_key"] = Processor.process_get_successor_for_key
+    self._processMap["get_successor_list"] = Processor.process_get_successor_list
     self._processMap["get_init_data"] = Processor.process_get_init_data
     self._processMap["put"] = Processor.process_put
     self._processMap["notify"] = Processor.process_notify
-    self._processMap["replicate"] = Processor.process_replicate
+    self._processMap["print_details"] = Processor.process_print_details
+    self._processMap["print_successor_list"] = Processor.process_print_successor_list
 
   def process(self, iprot, oprot):
     (name, type, seqid) = iprot.readMessageBegin()
@@ -335,6 +403,17 @@ class Processor(Iface, TProcessor):
     oprot.writeMessageEnd()
     oprot.trans.flush()
 
+  def process_get_successor(self, seqid, iprot, oprot):
+    args = get_successor_args()
+    args.read(iprot)
+    iprot.readMessageEnd()
+    result = get_successor_result()
+    result.success = self._handler.get_successor()
+    oprot.writeMessageBegin("get_successor", TMessageType.REPLY, seqid)
+    result.write(oprot)
+    oprot.writeMessageEnd()
+    oprot.trans.flush()
+
   def process_get_successor_for_key(self, seqid, iprot, oprot):
     args = get_successor_for_key_args()
     args.read(iprot)
@@ -342,6 +421,17 @@ class Processor(Iface, TProcessor):
     result = get_successor_for_key_result()
     result.success = self._handler.get_successor_for_key(args.key)
     oprot.writeMessageBegin("get_successor_for_key", TMessageType.REPLY, seqid)
+    result.write(oprot)
+    oprot.writeMessageEnd()
+    oprot.trans.flush()
+
+  def process_get_successor_list(self, seqid, iprot, oprot):
+    args = get_successor_list_args()
+    args.read(iprot)
+    iprot.readMessageEnd()
+    result = get_successor_list_result()
+    result.success = self._handler.get_successor_list()
+    oprot.writeMessageBegin("get_successor_list", TMessageType.REPLY, seqid)
     result.write(oprot)
     oprot.writeMessageEnd()
     oprot.trans.flush()
@@ -379,13 +469,24 @@ class Processor(Iface, TProcessor):
     oprot.writeMessageEnd()
     oprot.trans.flush()
 
-  def process_replicate(self, seqid, iprot, oprot):
-    args = replicate_args()
+  def process_print_details(self, seqid, iprot, oprot):
+    args = print_details_args()
     args.read(iprot)
     iprot.readMessageEnd()
-    result = replicate_result()
-    result.success = self._handler.replicate(args.key, args.value, args.source)
-    oprot.writeMessageBegin("replicate", TMessageType.REPLY, seqid)
+    result = print_details_result()
+    self._handler.print_details()
+    oprot.writeMessageBegin("print_details", TMessageType.REPLY, seqid)
+    result.write(oprot)
+    oprot.writeMessageEnd()
+    oprot.trans.flush()
+
+  def process_print_successor_list(self, seqid, iprot, oprot):
+    args = print_successor_list_args()
+    args.read(iprot)
+    iprot.readMessageEnd()
+    result = print_successor_list_result()
+    self._handler.print_successor_list()
+    oprot.writeMessageBegin("print_successor_list", TMessageType.REPLY, seqid)
     result.write(oprot)
     oprot.writeMessageEnd()
     oprot.trans.flush()
@@ -614,6 +715,107 @@ class get_predecessor_result(object):
   def __ne__(self, other):
     return not (self == other)
 
+class get_successor_args(object):
+
+  thrift_spec = (
+  )
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('get_successor_args')
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+
+  def validate(self):
+    return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class get_successor_result(object):
+  """
+  Attributes:
+   - success
+  """
+
+  thrift_spec = (
+    (0, TType.STRING, 'success', None, None, ), # 0
+  )
+
+  def __init__(self, success=None,):
+    self.success = success
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 0:
+        if ftype == TType.STRING:
+          self.success = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('get_successor_result')
+    if self.success is not None:
+      oprot.writeFieldBegin('success', TType.STRING, 0)
+      oprot.writeString(self.success)
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+
+  def validate(self):
+    return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
 class get_successor_for_key_args(object):
   """
   Attributes:
@@ -714,6 +916,108 @@ class get_successor_for_key_result(object):
     if self.success is not None:
       oprot.writeFieldBegin('success', TType.STRING, 0)
       oprot.writeString(self.success)
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+
+  def validate(self):
+    return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class get_successor_list_args(object):
+
+  thrift_spec = (
+  )
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('get_successor_list_args')
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+
+  def validate(self):
+    return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class get_successor_list_result(object):
+  """
+  Attributes:
+   - success
+  """
+
+  thrift_spec = (
+    (0, TType.STRUCT, 'success', (SuccessorListResponse, SuccessorListResponse.thrift_spec), None, ), # 0
+  )
+
+  def __init__(self, success=None,):
+    self.success = success
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 0:
+        if ftype == TType.STRUCT:
+          self.success = SuccessorListResponse()
+          self.success.read(iprot)
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('get_successor_list_result')
+    if self.success is not None:
+      oprot.writeFieldBegin('success', TType.STRUCT, 0)
+      self.success.write(oprot)
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()
@@ -1103,25 +1407,10 @@ class notify_result(object):
   def __ne__(self, other):
     return not (self == other)
 
-class replicate_args(object):
-  """
-  Attributes:
-   - key
-   - value
-   - source
-  """
+class print_details_args(object):
 
   thrift_spec = (
-    None, # 0
-    (1, TType.STRING, 'key', None, None, ), # 1
-    (2, TType.STRING, 'value', None, None, ), # 2
-    (3, TType.STRING, 'source', None, None, ), # 3
   )
-
-  def __init__(self, key=None, value=None, source=None,):
-    self.key = key
-    self.value = value
-    self.source = source
 
   def read(self, iprot):
     if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
@@ -1132,21 +1421,6 @@ class replicate_args(object):
       (fname, ftype, fid) = iprot.readFieldBegin()
       if ftype == TType.STOP:
         break
-      if fid == 1:
-        if ftype == TType.STRING:
-          self.key = iprot.readString();
-        else:
-          iprot.skip(ftype)
-      elif fid == 2:
-        if ftype == TType.STRING:
-          self.value = iprot.readString();
-        else:
-          iprot.skip(ftype)
-      elif fid == 3:
-        if ftype == TType.STRING:
-          self.source = iprot.readString();
-        else:
-          iprot.skip(ftype)
       else:
         iprot.skip(ftype)
       iprot.readFieldEnd()
@@ -1156,19 +1430,7 @@ class replicate_args(object):
     if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
       oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
       return
-    oprot.writeStructBegin('replicate_args')
-    if self.key is not None:
-      oprot.writeFieldBegin('key', TType.STRING, 1)
-      oprot.writeString(self.key)
-      oprot.writeFieldEnd()
-    if self.value is not None:
-      oprot.writeFieldBegin('value', TType.STRING, 2)
-      oprot.writeString(self.value)
-      oprot.writeFieldEnd()
-    if self.source is not None:
-      oprot.writeFieldBegin('source', TType.STRING, 3)
-      oprot.writeString(self.source)
-      oprot.writeFieldEnd()
+    oprot.writeStructBegin('print_details_args')
     oprot.writeFieldStop()
     oprot.writeStructEnd()
 
@@ -1187,18 +1449,10 @@ class replicate_args(object):
   def __ne__(self, other):
     return not (self == other)
 
-class replicate_result(object):
-  """
-  Attributes:
-   - success
-  """
+class print_details_result(object):
 
   thrift_spec = (
-    (0, TType.I32, 'success', None, None, ), # 0
   )
-
-  def __init__(self, success=None,):
-    self.success = success
 
   def read(self, iprot):
     if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
@@ -1209,11 +1463,6 @@ class replicate_result(object):
       (fname, ftype, fid) = iprot.readFieldBegin()
       if ftype == TType.STOP:
         break
-      if fid == 0:
-        if ftype == TType.I32:
-          self.success = iprot.readI32();
-        else:
-          iprot.skip(ftype)
       else:
         iprot.skip(ftype)
       iprot.readFieldEnd()
@@ -1223,11 +1472,91 @@ class replicate_result(object):
     if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
       oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
       return
-    oprot.writeStructBegin('replicate_result')
-    if self.success is not None:
-      oprot.writeFieldBegin('success', TType.I32, 0)
-      oprot.writeI32(self.success)
-      oprot.writeFieldEnd()
+    oprot.writeStructBegin('print_details_result')
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+
+  def validate(self):
+    return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class print_successor_list_args(object):
+
+  thrift_spec = (
+  )
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('print_successor_list_args')
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+
+  def validate(self):
+    return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class print_successor_list_result(object):
+
+  thrift_spec = (
+  )
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('print_successor_list_result')
     oprot.writeFieldStop()
     oprot.writeStructEnd()
 

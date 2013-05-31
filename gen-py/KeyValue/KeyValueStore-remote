@@ -25,11 +25,14 @@ if len(sys.argv) <= 1 or sys.argv[1] == '--help':
   print 'Functions:'
   print '  GetValueResponse get(string key)'
   print '  string get_predecessor()'
+  print '  string get_successor()'
   print '  string get_successor_for_key(string key)'
+  print '  SuccessorListResponse get_successor_list()'
   print '  DataResponse get_init_data(string hash)'
   print '  ChordStatus put(string key, string value)'
   print '  ChordStatus notify(string node)'
-  print '  ChordStatus replicate(string key, string value, string source)'
+  print '  void print_details()'
+  print '  void print_successor_list()'
   print ''
   sys.exit(0)
 
@@ -93,11 +96,23 @@ elif cmd == 'get_predecessor':
     sys.exit(1)
   pp.pprint(client.get_predecessor())
 
+elif cmd == 'get_successor':
+  if len(args) != 0:
+    print 'get_successor requires 0 args'
+    sys.exit(1)
+  pp.pprint(client.get_successor())
+
 elif cmd == 'get_successor_for_key':
   if len(args) != 1:
     print 'get_successor_for_key requires 1 args'
     sys.exit(1)
   pp.pprint(client.get_successor_for_key(args[0],))
+
+elif cmd == 'get_successor_list':
+  if len(args) != 0:
+    print 'get_successor_list requires 0 args'
+    sys.exit(1)
+  pp.pprint(client.get_successor_list())
 
 elif cmd == 'get_init_data':
   if len(args) != 1:
@@ -117,11 +132,17 @@ elif cmd == 'notify':
     sys.exit(1)
   pp.pprint(client.notify(args[0],))
 
-elif cmd == 'replicate':
-  if len(args) != 3:
-    print 'replicate requires 3 args'
+elif cmd == 'print_details':
+  if len(args) != 0:
+    print 'print_details requires 0 args'
     sys.exit(1)
-  pp.pprint(client.replicate(args[0],args[1],args[2],))
+  pp.pprint(client.print_details())
+
+elif cmd == 'print_successor_list':
+  if len(args) != 0:
+    print 'print_successor_list requires 0 args'
+    sys.exit(1)
+  pp.pprint(client.print_successor_list())
 
 else:
   print 'Unrecognized method %s' % cmd
