@@ -22,6 +22,8 @@ def get_hash(key):
     return int(md5(key).hexdigest(), 16)
 
 def is_key_between(key, begin, end):
+    if key == begin:
+        return end
     if end < begin:
         if key > end and key > begin:
             return True
@@ -45,3 +47,4 @@ def remote(node):
         transport.close()
     except Thrift.TException, tx:
         print "Caught exception:", tx.message, node_decoded[0], node_decoded[1]
+        yield None

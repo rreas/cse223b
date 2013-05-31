@@ -27,6 +27,7 @@ struct SuccessorListResponse {
 service KeyValueStore {
   GetValueResponse get(1: string key),
   string get_predecessor(),
+  string get_successor(),
   string get_successor_for_key(1: string key),
   SuccessorListResponse get_successor_list(),
   DataResponse get_init_data(1: string hash),

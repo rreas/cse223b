@@ -80,7 +80,7 @@ class TestChord:
         b_key = encode_node('localhost', 3343)
 
         # Time for stabilize to run.
-        sleep(3)
+        sleep(5)
 
         try:
             with connect(3342) as client:
@@ -89,6 +89,8 @@ class TestChord:
             with connect(3343) as client:
                 pred_b = client.get_predecessor()
                 assert pred_b == a_key
+                succ_b = client.get_successor()
+                assert succ_b == a_key
                 succ_b = client.get_successor_for_key(str(get_hash(b_key)))
                 assert succ_b == a_key
                 status = client.put('keya', 'valuea')
@@ -98,7 +100,7 @@ class TestChord:
                 pred_a = client.get_predecessor()
                 assert pred_a == b_key
                 succ_a = client.get_successor_for_key(str(get_hash(a_key)))
-                assert succ_a == a_key
+                assert succ_a == b_key
                 status = client.put('keyb', 'valueb')
                 assert status == ChordStatus.OK
 
@@ -139,10 +141,15 @@ class TestChord:
                 resp = client.get('connie')
                 assert resp.value == 'lol'
 
-                servers[port].terminate()
-                del servers[port]
-                resp = client.get('connie')
-                assert resp.value == 'lol'
+            servers[port].terminate()
+            del servers[port]
+            active_port = servers.keys()[0]
+            with connect(active_port) as client:
+                client.put('russell', 'pumpkin')
+            active_port = servers.keys()[1]
+            with connect(active_port) as client:
+                resp = client.get('russell')
+                assert resp.value == 'pumpkin'
 
         finally:
             for port, name in servers.items():
