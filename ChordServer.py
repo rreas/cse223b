@@ -72,6 +72,7 @@ class ChordServer(KeyValueStore.Iface):
         del self.successor_list[len(self.successor_list) - 1]
         self.successor_list.insert(0, self.successor)
 
+        self.inform_predecessor(self.node_key)
         # TODO: check status?
         with remote(self.successor) as client:
             if client is None:
@@ -107,7 +108,11 @@ class ChordServer(KeyValueStore.Iface):
         with remote(self.successor) as client:
             if client is None:
                 self.handle_successor_failure()
-                return None
+                
+                # Retry
+                with remote(self.successor) as client:
+                    return client.get_successor_for_key(hashcode)
+
             return client.get_successor_for_key(hashcode)
 
     def get_init_data(self, hashcode):
@@ -168,7 +173,10 @@ class ChordServer(KeyValueStore.Iface):
             with remote(master_node) as client:
                 if client is None:
                     self.handle_successor_failure()
-                    return ChordStatus.ERROR
+                    # This happens only when the immediate successor had the key and failed.
+                    # Retry after fix.
+                    with remote(self.successor) as client:
+                        return client.put(key, value)
 
                 status = client.put(key, value)
                 return status
@@ -195,6 +203,36 @@ class ChordServer(KeyValueStore.Iface):
         # TODO: Probably need a check to see if it is truly the predecessor (see Chord)
         self.predecessor = node
         return ChordStatus.OK
+
+    def notify_predecessor(self, node):
+        # A new successor! update attributes and successor_list
+        with self.lock:
+            self.successor = node
+            # This should be sufficient temporarily. Stabilize will make up for any
+            # inconsistencies.
+            del self.successor_list[len(self.successor_list) - 1]
+            self.successor_list.insert(0, self.successor)
+        return ChordStatus.OK
+
+
+    def inform_predecessor(self, node):
+        with remote(self.successor) as client:
+            if client is None:
+                print "Successor failed before node join completed. Exiting.."
+                os._exit(1)
+            predecessor = client.get_predecessor()
+
+        if predecessor == str(None):
+            self.predecessor = self.successor
+        else:
+            self.predecessor = predecessor
+
+        with remote(self.predecessor) as client:
+            if client is None:
+                print "Could not connect to predecessor. Not a big deal."
+                return
+            # We probably don't care too much about status. This will stabilize later anyway.
+            status = client.notify_predecessor(self.node_key)
 
     def stabilize(self):
         ''' Every interval do:
@@ -261,7 +299,7 @@ class ChordServer(KeyValueStore.Iface):
                     self.successor_list.insert(0, self.successor)
 
             #self.print_details()
-            #self.print_successor_list()
+            self.print_successor_list()
 
     # QUESTION: If we are here should we retry the last thing?
     # QUESTION: Why do we exit?  Can't it just be self?

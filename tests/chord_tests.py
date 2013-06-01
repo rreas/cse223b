@@ -168,7 +168,6 @@ class TestChord:
                 servers[port] = spawn_server(port,
                                              chord_name="localhost",
                                              chord_port=ports[0])
-            sleep(2)
 
         for port in ports:
             with connect(port) as client:
