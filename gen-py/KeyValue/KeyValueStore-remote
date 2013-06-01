@@ -31,6 +31,7 @@ if len(sys.argv) <= 1 or sys.argv[1] == '--help':
   print '  DataResponse get_init_data(string hash)'
   print '  ChordStatus put(string key, string value)'
   print '  ChordStatus notify(string node)'
+  print '  ChordStatus notify_predecessor(string node)'
   print '  void print_details()'
   print '  void print_successor_list()'
   print '  ChordStatus ping()'
@@ -133,6 +134,12 @@ elif cmd == 'notify':
     print 'notify requires 1 args'
     sys.exit(1)
   pp.pprint(client.notify(args[0],))
+
+elif cmd == 'notify_predecessor':
+  if len(args) != 1:
+    print 'notify_predecessor requires 1 args'
+    sys.exit(1)
+  pp.pprint(client.notify_predecessor(args[0],))
 
 elif cmd == 'print_details':
   if len(args) != 0:
