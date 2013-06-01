@@ -162,7 +162,7 @@ class ChordServer(KeyValueStore.Iface):
         if master_node == self.node_key:
             with self.lock:
                 self.kvstore[key] = value
-
+                self.replicate_dat_shit(key, value)
             return ChordStatus.OK  
         else:
             with remote(master_node) as client:
@@ -173,6 +173,23 @@ class ChordServer(KeyValueStore.Iface):
                 status = client.put(key, value)
                 return status
 
+
+    def replicate_dat_shit(self, key, value, replicas=1):
+        #Replicate this shit! With thrift RPC replicate call
+        if self.successor == self.node_key:
+            return ChordStatus.OK
+
+        #Else, send to successor
+        with remote(self.successor) as client:
+            status = client.replicate(key, value, self.node_key)
+            return status
+
+    def replicate(self, key, value, source):
+        with self.lock:
+            #Store in our replicas dict
+            #self.kvstore[key] = value
+            self.replicas[source][key] = value
+        return ChordStatus.OK
 
     def notify(self, node):
         # TODO: Probably need a check to see if it is truly the predecessor (see Chord)

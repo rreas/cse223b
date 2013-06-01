@@ -33,6 +33,8 @@ if len(sys.argv) <= 1 or sys.argv[1] == '--help':
   print '  ChordStatus notify(string node)'
   print '  void print_details()'
   print '  void print_successor_list()'
+  print '  ChordStatus ping()'
+  print '  ChordStatus replicate(string key, string value, string source)'
   print ''
   sys.exit(0)
 
@@ -143,6 +145,18 @@ elif cmd == 'print_successor_list':
     print 'print_successor_list requires 0 args'
     sys.exit(1)
   pp.pprint(client.print_successor_list())
+
+elif cmd == 'ping':
+  if len(args) != 0:
+    print 'ping requires 0 args'
+    sys.exit(1)
+  pp.pprint(client.ping())
+
+elif cmd == 'replicate':
+  if len(args) != 3:
+    print 'replicate requires 3 args'
+    sys.exit(1)
+  pp.pprint(client.replicate(args[0],args[1],args[2],))
 
 else:
   print 'Unrecognized method %s' % cmd

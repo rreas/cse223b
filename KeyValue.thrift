@@ -36,5 +36,6 @@ service KeyValueStore {
   void print_details(),
   void print_successor_list(),
   ChordStatus ping()
+  ChordStatus replicate(1: string key, 2: string value, 3: string source)
 }
 
