@@ -105,7 +105,11 @@ class ChordServer(KeyValueStore.Iface):
         with remote(self.successor) as client:
             if client is None:
                 self.handle_successor_failure()
-                return None
+                
+                # Retry
+                with remote(self.successor) as client:
+                    return client.get_successor_for_key(hashcode)
+
             return client.get_successor_for_key(hashcode)
 
     def get_init_data(self, hashcode):
@@ -166,7 +170,10 @@ class ChordServer(KeyValueStore.Iface):
             with remote(master_node) as client:
                 if client is None:
                     self.handle_successor_failure()
-                    return ChordStatus.ERROR
+                    # This happens only when the immediate successor had the key and failed.
+                    # Retry after fix.
+                    with remote(self.successor) as client:
+                        return client.put(key, value)
 
                 status = client.put(key, value)
                 return status
@@ -178,7 +185,6 @@ class ChordServer(KeyValueStore.Iface):
         return ChordStatus.OK
 
     def notify_predecessor(self, node):
-        print "got update from successor ", node
         # A new successor! update attributes and successor_list
         with self.lock:
             self.successor = node
@@ -190,7 +196,6 @@ class ChordServer(KeyValueStore.Iface):
 
 
     def inform_predecessor(self, node):
-        print "Successor ", self.successor
         with remote(self.successor) as client:
             if client is None:
                 print "Successor failed before node join completed. Exiting.."
@@ -217,13 +222,13 @@ class ChordServer(KeyValueStore.Iface):
             3) In case the successor has failed, try the next successor in the list and 
             update attributes.
         '''
-
         first_run = True
         while True:
             if first_run is True:
-                first_run  = False
+                first_run = False
             else:
                 sleep(1)
+
             if self.successor != self.node_key:
                 with remote(self.successor) as client:
                     if client is None:
