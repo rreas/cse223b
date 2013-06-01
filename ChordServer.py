@@ -184,9 +184,13 @@ class ChordServer(KeyValueStore.Iface):
             3) In case the successor has failed, try the next successor in the list and 
             update attributes.
         '''
-        while True:
-            sleep(3)
 
+        first_run = True
+        while True:
+            if first_run is True:
+                first_run  = False
+            else:
+                sleep(3)
             if self.successor != self.node_key:
                 with remote(self.successor) as client:
                     if client is None:
@@ -216,10 +220,10 @@ class ChordServer(KeyValueStore.Iface):
                         self.handle_successor_failure()
                         continue
                     response = client.get_successor_list()
-                # Get updated successor_list from successor and make adjustments.
-                self.successor_list = response.successor_list
-                del self.successor_list[len(self.successor_list) - 1]
-                self.successor_list.insert(0, self.successor)
+                    # Get updated successor_list from successor and make adjustments.
+                    self.successor_list = response.successor_list
+                    del self.successor_list[len(self.successor_list) - 1]
+                    self.successor_list.insert(0, self.successor)
 
                     
             self.print_details()
@@ -229,32 +233,32 @@ class ChordServer(KeyValueStore.Iface):
         ''' If the successor has failed/unreachable, the first alive 
         and reachable node in the successor_list becomes the successor and 
         the list is updated. If there is no successor, exit'''
-
-        response = ChordStatus.ERROR
-        for i in range(0, len(self.successor_list)):
-            # print "Trying ", self.successor_list[i]
-            if self.successor_list[i] == self.node_key:
-                continue
-
-            with remote(self.successor_list[i]) as client:
-                if client is None:
+        with self.lock:
+            response = ChordStatus.ERROR
+            for i in range(0, len(self.successor_list)):
+                # print "Trying ", self.successor_list[i]
+                if self.successor_list[i] == self.node_key:
                     continue
-                response = client.get_successor_list()
 
-            self.successor = self.successor_list[i]
-            with remote(self.successor) as client:
-                if client is None:
-                    continue
-                client.notify(self.node_key)
+                with remote(self.successor_list[i]) as client:
+                    if client is None:
+                        continue
+                    response = client.get_successor_list()
 
-            self.successor_list = response.successor_list
-            del self.successor_list[len(self.successor_list) - 1]
-            self.successor_list.insert(0, self.successor)
-            return
+                self.successor = self.successor_list[i]
+                with remote(self.successor) as client:
+                    if client is None:
+                        continue
+                    client.notify(self.node_key)
 
-        # TODO either partitioned or there were more than 'r' failures.
-        print "Exiting"
-        os._exit(1)
+                self.successor_list = response.successor_list
+                del self.successor_list[len(self.successor_list) - 1]
+                self.successor_list.insert(0, self.successor)
+                return
+
+            # TODO either partitioned or there were more than 'r' failures.
+            print "Exiting"
+            os._exit(1)
 
     def print_details(self):
         print "Node_Key ", self.node_key
