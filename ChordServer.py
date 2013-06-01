@@ -17,7 +17,6 @@ from KeyValue.ttypes import *
 from helpers import *
 
 # The number of successive server failures that can be tolerated.
-SUCCESSOR_LIST_LENGTH = 5
 class ChordServer(KeyValueStore.Iface):
 
     # If chord_name and chord_port are not given, this is the first node in Chord ring.
@@ -34,6 +33,10 @@ class ChordServer(KeyValueStore.Iface):
         self.successor_list = []
         self.hashcode = get_hash(self.node_key)
         self.lock = threading2.Lock()
+        
+        # Property can be changed by external code.
+        self.successor_list_length = 5
+
         # Join an existing chord ring. Start by obtaining the successor.
         if chord_name is not None:
             assert(chord_port is not None)
@@ -85,7 +88,7 @@ class ChordServer(KeyValueStore.Iface):
     def initialize_successor_list(self):
         ''' If there are no other nodes in Chord, initialize the 
         successor_list to just the current node'''
-        for i in range(0, SUCCESSOR_LIST_LENGTH):
+        for i in range(0, self.successor_list_length):
             self.successor_list.append(self.node_key)
 
     def get_successor_for_key(self, hashcode):
@@ -227,31 +230,46 @@ class ChordServer(KeyValueStore.Iface):
             if first_run is True:
                 first_run = False
             else:
-                sleep(1)
+                sleep(2)
 
             if self.successor != self.node_key:
+                # We think we have a successor.
+
                 with remote(self.successor) as client:
                     if client is None:
+                        # Could not connect to successor.
                         self.handle_successor_failure()
                         continue
+
+                    # See if there is really a node between us.
                     x = client.get_predecessor()
+
             else:
+                # Otherwise check the predecessor?
                 x = self.predecessor
 
             if x is not None and x != self.node_key:
+                # We think we have a successor.
+
                 if self.successor != x:
-                    ''' A new node joined the ring and is the current node's successor.
-                    This requires updating the successor_list.'''
+                    # A new node joined the ring and is the current
+                    # node's successor. This requires updating the
+                    # successor_list.
+
                     with remote(x) as client:
                         if client is None:
                             # TODO: what do we do here? The current node heard about a new successor,
                             # was unable to contact it. For now, doing nothing and continuing as if 
                             # the new node did not join.
+
+                            # QUESTION: Should this just handle succ fail?
                             continue
                         self.successor = x
                         status = client.notify(self.node_key)
                     # TODO check status and take action.
 
+            # This is just maintenance work?
+            # Can this move to another thread?
             if self.successor != self.node_key:
                 with remote(self.successor) as client:
                     if client is None:
@@ -266,6 +284,8 @@ class ChordServer(KeyValueStore.Iface):
             #self.print_details()
             self.print_successor_list()
 
+    # QUESTION: If we are here should we retry the last thing?
+    # QUESTION: Why do we exit?  Can't it just be self?
     def handle_successor_failure(self):
         ''' If the successor has failed/unreachable, the first alive 
         and reachable node in the successor_list becomes the successor and 

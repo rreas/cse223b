@@ -35,6 +35,7 @@ service KeyValueStore {
   ChordStatus notify(1: string node),
   ChordStatus notify_predecessor(1: string node),
   void print_details(),
-  void print_successor_list()
+  void print_successor_list(),
+  ChordStatus ping()
 }
 
