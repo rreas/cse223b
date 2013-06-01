@@ -50,23 +50,20 @@ class DataResponse(object):
   Attributes:
    - status
    - kvstore
-   - finger_node_table
-   - finger_hash_table
+   - successor_list
   """
 
   thrift_spec = (
     None, # 0
     (1, TType.I32, 'status', None, None, ), # 1
     (2, TType.MAP, 'kvstore', (TType.STRING,None,TType.STRING,None), None, ), # 2
-    (3, TType.LIST, 'finger_node_table', (TType.STRING,None), None, ), # 3
-    (4, TType.LIST, 'finger_hash_table', (TType.STRING,None), None, ), # 4
+    (3, TType.LIST, 'successor_list', (TType.STRING,None), None, ), # 3
   )
 
-  def __init__(self, status=None, kvstore=None, finger_node_table=None, finger_hash_table=None,):
+  def __init__(self, status=None, kvstore=None, successor_list=None,):
     self.status = status
     self.kvstore = kvstore
-    self.finger_node_table = finger_node_table
-    self.finger_hash_table = finger_hash_table
+    self.successor_list = successor_list
 
   def read(self, iprot):
     if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
@@ -95,21 +92,11 @@ class DataResponse(object):
           iprot.skip(ftype)
       elif fid == 3:
         if ftype == TType.LIST:
-          self.finger_node_table = []
+          self.successor_list = []
           (_etype10, _size7) = iprot.readListBegin()
           for _i11 in xrange(_size7):
             _elem12 = iprot.readString();
-            self.finger_node_table.append(_elem12)
-          iprot.readListEnd()
-        else:
-          iprot.skip(ftype)
-      elif fid == 4:
-        if ftype == TType.LIST:
-          self.finger_hash_table = []
-          (_etype16, _size13) = iprot.readListBegin()
-          for _i17 in xrange(_size13):
-            _elem18 = iprot.readString();
-            self.finger_hash_table.append(_elem18)
+            self.successor_list.append(_elem12)
           iprot.readListEnd()
         else:
           iprot.skip(ftype)
@@ -130,23 +117,16 @@ class DataResponse(object):
     if self.kvstore is not None:
       oprot.writeFieldBegin('kvstore', TType.MAP, 2)
       oprot.writeMapBegin(TType.STRING, TType.STRING, len(self.kvstore))
-      for kiter19,viter20 in self.kvstore.items():
-        oprot.writeString(kiter19)
-        oprot.writeString(viter20)
+      for kiter13,viter14 in self.kvstore.items():
+        oprot.writeString(kiter13)
+        oprot.writeString(viter14)
       oprot.writeMapEnd()
       oprot.writeFieldEnd()
-    if self.finger_node_table is not None:
-      oprot.writeFieldBegin('finger_node_table', TType.LIST, 3)
-      oprot.writeListBegin(TType.STRING, len(self.finger_node_table))
-      for iter21 in self.finger_node_table:
-        oprot.writeString(iter21)
-      oprot.writeListEnd()
-      oprot.writeFieldEnd()
-    if self.finger_hash_table is not None:
-      oprot.writeFieldBegin('finger_hash_table', TType.LIST, 4)
-      oprot.writeListBegin(TType.STRING, len(self.finger_hash_table))
-      for iter22 in self.finger_hash_table:
-        oprot.writeString(iter22)
+    if self.successor_list is not None:
+      oprot.writeFieldBegin('successor_list', TType.LIST, 3)
+      oprot.writeListBegin(TType.STRING, len(self.successor_list))
+      for iter15 in self.successor_list:
+        oprot.writeString(iter15)
       oprot.writeListEnd()
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
@@ -220,6 +200,86 @@ class GetValueResponse(object):
     if self.value is not None:
       oprot.writeFieldBegin('value', TType.STRING, 2)
       oprot.writeString(self.value)
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+
+  def validate(self):
+    return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class SuccessorListResponse(object):
+  """
+  Attributes:
+   - status
+   - successor_list
+  """
+
+  thrift_spec = (
+    None, # 0
+    (1, TType.I32, 'status', None, None, ), # 1
+    (2, TType.LIST, 'successor_list', (TType.STRING,None), None, ), # 2
+  )
+
+  def __init__(self, status=None, successor_list=None,):
+    self.status = status
+    self.successor_list = successor_list
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 1:
+        if ftype == TType.I32:
+          self.status = iprot.readI32();
+        else:
+          iprot.skip(ftype)
+      elif fid == 2:
+        if ftype == TType.LIST:
+          self.successor_list = []
+          (_etype19, _size16) = iprot.readListBegin()
+          for _i20 in xrange(_size16):
+            _elem21 = iprot.readString();
+            self.successor_list.append(_elem21)
+          iprot.readListEnd()
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('SuccessorListResponse')
+    if self.status is not None:
+      oprot.writeFieldBegin('status', TType.I32, 1)
+      oprot.writeI32(self.status)
+      oprot.writeFieldEnd()
+    if self.successor_list is not None:
+      oprot.writeFieldBegin('successor_list', TType.LIST, 2)
+      oprot.writeListBegin(TType.STRING, len(self.successor_list))
+      for iter22 in self.successor_list:
+        oprot.writeString(iter22)
+      oprot.writeListEnd()
       oprot.writeFieldEnd()
     oprot.writeFieldStop()
     oprot.writeStructEnd()

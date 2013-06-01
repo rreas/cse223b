@@ -32,6 +32,8 @@ service KeyValueStore {
   SuccessorListResponse get_successor_list(),
   DataResponse get_init_data(1: string hash),
   ChordStatus put(1: string key, 2: string value),
-  ChordStatus notify(1: string node)
+  ChordStatus notify(1: string node),
+  void print_details(),
+  void print_successor_list()
 }
 
