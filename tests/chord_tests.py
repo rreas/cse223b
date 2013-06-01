@@ -115,6 +115,48 @@ class TestChord:
             a.terminate()
             b.terminate()
 
+    def test_chord_join_complex(self):
+        ports = range(3342, 3345)
+        pred_set = set(ports)
+        succ_set = set(ports)
+        servers = {}
+
+        for port in ports:
+            if port == ports[0]:
+                servers[port] = spawn_server(port)
+            else:
+                servers[port] = spawn_server(port,
+                                             chord_name="localhost",
+                                             chord_port=ports[0])
+            sleep(2)
+
+        for port in ports:
+            with connect(port) as client:
+                client.print_details()
+
+        try:
+            #We want to check their successors and predecessors
+            for port in ports:
+                with connect(port) as client:
+
+                    #Check predecessor
+                    pred = client.get_predecessor()
+                    pred_port = int(pred.replace("localhost:", ""))
+                    assert pred_port in pred_set
+                    pred_set.remove(pred_port)
+
+                    #Check successor
+                    succ = client.get_successor()
+                    succ_port = int(succ.replace("localhost:", ""))
+                    assert succ_port in succ_set
+                    succ_set.remove(succ_port)
+
+                    assert succ is not pred
+        finally:
+            for port, name in servers.items():
+                name.terminate()
+
+
     def test_crash_some_servers(self):
         ports = range(3342, 3347)
         servers = {}
@@ -137,6 +179,9 @@ class TestChord:
                 client.put('connie', 'lol')
                 client.put('rakesh', 'lol++')
                 key = client.get_successor_for_key(str(get_hash('connie')))
+                
+                print "key is " + key
+                print "hash is " + str(get_hash('connie'))
                 port = int(key.split(":")[1])
                 resp = client.get('connie')
                 assert resp.value == 'lol'
