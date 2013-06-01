@@ -116,22 +116,22 @@ class TestChord:
             b.terminate()
 
     def test_crash_some_servers(self):
-        servers = {
-                3342: spawn_server(3342),
-                3343: spawn_server(3343,
-                                   chord_name="localhost",
-                                   chord_port=3342),
-                3344: spawn_server(3344,
-                                   chord_name="localhost",
-                                   chord_port=3342),
-                3345: spawn_server(3345,
-                                   chord_name="localhost",
-                                   chord_port=3342),
-                3346: spawn_server(3346,
-                                   chord_name="localhost",
-                                   chord_port=3342)}
-        sleep(5)
+        ports = range(3342, 3347)
+        servers = {}
 
+        for port in ports:
+            if port == ports[0]:
+                servers[port] = spawn_server(port)
+            else:
+                servers[port] = spawn_server(port,
+                                             chord_name="localhost",
+                                             chord_port=ports[0])
+            sleep(2)
+
+        for port in ports:
+            with connect(port) as client:
+                client.print_details()
+                
         try:
             with connect(3342) as client:
                 client.put('connie', 'lol')

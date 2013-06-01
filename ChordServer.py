@@ -185,7 +185,7 @@ class ChordServer(KeyValueStore.Iface):
             update attributes.
         '''
         while True:
-            sleep(3)
+            sleep(1)
 
             if self.successor != self.node_key:
                 with remote(self.successor) as client:
