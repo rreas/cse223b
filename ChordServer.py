@@ -69,6 +69,7 @@ class ChordServer(KeyValueStore.Iface):
         del self.successor_list[len(self.successor_list) - 1]
         self.successor_list.insert(0, self.successor)
 
+        self.inform_predecessor(self.node_key)
         # TODO: check status?
         with remote(self.successor) as client:
             if client is None:
@@ -176,6 +177,38 @@ class ChordServer(KeyValueStore.Iface):
         self.predecessor = node
         return ChordStatus.OK
 
+    def notify_predecessor(self, node):
+        print "got update from successor ", node
+        # A new successor! update attributes and successor_list
+        with self.lock:
+            self.successor = node
+            # This should be sufficient temporarily. Stabilize will make up for any
+            # inconsistencies.
+            del self.successor_list[len(self.successor_list) - 1]
+            self.successor_list.insert(0, self.successor)
+        return ChordStatus.OK
+
+
+    def inform_predecessor(self, node):
+        print "Successor ", self.successor
+        with remote(self.successor) as client:
+            if client is None:
+                print "Successor failed before node join completed. Exiting.."
+                os._exit(1)
+            predecessor = client.get_predecessor()
+
+        if predecessor == str(None):
+            self.predecessor = self.successor
+        else:
+            self.predecessor = predecessor
+
+        with remote(self.predecessor) as client:
+            if client is None:
+                print "Could not connect to predecessor. Not a big deal."
+                return
+            # We probably don't care too much about status. This will stabilize later anyway.
+            status = client.notify_predecessor(self.node_key)
+
     def stabilize(self):
         ''' Every interval do:
             1) Find if the current node has a new successor, in case a new node joined 
@@ -190,7 +223,7 @@ class ChordServer(KeyValueStore.Iface):
             if first_run is True:
                 first_run  = False
             else:
-                sleep(3)
+                sleep(1)
             if self.successor != self.node_key:
                 with remote(self.successor) as client:
                     if client is None:
@@ -226,7 +259,7 @@ class ChordServer(KeyValueStore.Iface):
                     self.successor_list.insert(0, self.successor)
 
             #self.print_details()
-            #self.print_successor_list()
+            self.print_successor_list()
 
     def handle_successor_failure(self):
         ''' If the successor has failed/unreachable, the first alive 
@@ -270,6 +303,7 @@ class ChordServer(KeyValueStore.Iface):
         for i in range(0, len(self.successor_list)):
             print self.successor_list[i]
         print "=========================\n\n"
+
     def ping(self):
         return ChordStatus.OK
 
