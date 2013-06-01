@@ -132,7 +132,7 @@ class TestChord:
                 client.print_details()
                 
         try:
-            with connect(3342) as client:
+            with connect(ports[0]) as client:
                 client.put('connie', 'lol')
                 client.put('rakesh', 'lol++')
                 key = client.get_successor_for_key(str(get_hash('connie')))
@@ -142,17 +142,20 @@ class TestChord:
 
             servers[port].terminate()
             del servers[port]
+
+            with connect(ports[0]) as client:
+                resp = client.get('connie')
+                assert resp.value == 'lol'
+
             active_port = servers.keys()[0]
             with connect(active_port) as client:
-                client.put('russell', 'pumpkin')
+                client.put('russell', 'organic')
             active_port = servers.keys()[1]
             with connect(active_port) as client:
                 resp = client.get('russell')
-                assert resp.value == 'pumpkin'
+                assert resp.value == 'organic'
 
         finally:
             for port, name in servers.items():
                 name.terminate()
-
-
 
