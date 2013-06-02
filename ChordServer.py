@@ -62,7 +62,7 @@ class ChordServer(KeyValueStore.Iface):
             if client is None:
                 print "Unable to contact successor for init_data, exiting.."
                 os._exit(1)
-            data_response = client.get_init_data(str(self.hashcode))
+            data_response = client.get_init_data(str(self.node_key))
 
         self.kvstore = data_response.kvstore
         self.successor_list = data_response.successor_list
@@ -115,16 +115,34 @@ class ChordServer(KeyValueStore.Iface):
 
             return client.get_successor_for_key(hashcode)
 
-    def get_init_data(self, hashcode):
+    def get_init_data(self, node_key):
         ''' Provide the data required by a new server to be able to serve keys
         and handle server failures'''
 
         # dummy for now.
         data_response = DataResponse()
-        data_response.kvstore = {}
+        data_response.kvstore = self.get_kv_for_node(node_key)
         data_response.successor_list = self.successor_list
         data_response.status = ChordStatus.OK
         return data_response
+
+    def get_kv_for_node(self, node):
+        '''Returns a dictionary containing key, value pairs 
+        that should be transferred to the new node. These are the set of keys
+        between the current node's predecessor and the new node. If there is 
+        just a single node, then the keys between the current node and the new node.
+        '''
+        return_dict = {}
+        if self.predecessor is None:
+            for key in self.kvstore:
+                if is_key_between(self.hashcode, get_hash(node)):
+                    return_dict[key] = self.kvstore[key]
+        else:
+            for key in self.kvstore:
+                if is_key_between(get_hash(self.predecessor), get_hash(node)):
+                    return_dict[key] = self.kvstore[key]
+
+        return return_dict
 
     def get_predecessor(self):
         return str(self.predecessor)
