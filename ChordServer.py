@@ -107,7 +107,7 @@ class ChordServer(KeyValueStore.Iface):
         # Pass the buck to the successor and let it find the master.
         with remote(self.successor) as client:
             if client is None:
-                self.handle_successor_failure()
+                self.handle_successor_failure(failed_node=self.successor)
                 
                 # Retry
                 with remote(self.successor) as client:
@@ -154,7 +154,8 @@ class ChordServer(KeyValueStore.Iface):
         else:
             with remote(master_node) as client:
                 if client is None:
-                    self.handle_successor_failure()
+                    #self.handle_successor_failure()
+                    self.handle_successor_failure(failed_node=master_node)
                     response = GetValueResponse()
                     response.status = ChordStatus.ERROR
                     return response
@@ -178,7 +179,8 @@ class ChordServer(KeyValueStore.Iface):
             with remote(master_node) as client:
                 if client is None:
                     #If the node has failed
-                    self.handle_successor_failure()
+                    #self.handle_successor_failure()
+                    self.handle_successor_failure(failed_node=master_node)
                     # This happens only when the immediate successor had the key and failed.
                     # Retry after fix.
                     with remote(self.successor) as client:
@@ -291,7 +293,7 @@ class ChordServer(KeyValueStore.Iface):
                 with remote(self.successor) as client:
                     if client is None:
                         # Could not connect to successor.
-                        self.handle_successor_failure()
+                        self.handle_successor_failure(failed_node=self.successor)
                         continue
 
                     # See if there is really a node between us.
@@ -322,7 +324,7 @@ class ChordServer(KeyValueStore.Iface):
             if self.successor != self.node_key:
                 with remote(self.successor) as client:
                     if client is None:
-                        self.handle_successor_failure()
+                        self.handle_successor_failure(failed_node=self.successor)
                         continue
                     response = client.get_successor_list()
                     # Get updated successor_list from successor and make adjustments.
@@ -334,6 +336,7 @@ class ChordServer(KeyValueStore.Iface):
             #self.print_successor_list()
 
     def handle_successor_failure(self):
+    def handle_successor_failure(self, failed_node=None):
         ''' If the successor has failed/unreachable, the first alive 
         and reachable node in the successor_list becomes the successor and 
         the list is updated. If there is no successor, exit'''
