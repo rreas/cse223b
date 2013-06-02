@@ -52,9 +52,9 @@ def create_servers_in_range(from_port, to_port):
     for port in ports:
         servers[port] = {}
         if port == ports[0]:
-            servers[port]['server'] = spawn_server(port)
+            servers[port] = spawn_server(port)
         else:
-            servers[port]['server'] = spawn_server(port,
+            servers[port] = spawn_server(port,
                                          chord_name="localhost",
                                          chord_port=ports[0])
         sleep(2)
@@ -202,7 +202,7 @@ class TestChord:
 
         try:
             #We want to check kill a server and see if the successors and predecessors update
-            print "Now terminating server: %s",port
+            print "Now terminating server: %d" % port
             servers[port].terminate()
             del servers[port]
             ports.remove(port)
@@ -231,25 +231,47 @@ class TestChord:
         #For each server, check that the successor has its data
         ports = range(3342, 3345)
         servers = create_servers_in_range(3342, 3345)
+
         try:
             #For each port, get its successor
             for port in ports:
-                print "Port is %s\n" % port
-                with connect(port) as client:
-                    succ = client.get_successor()
-                    print "Successor is %s\n" % succ
-                    servers[port]['succ'] = succ
+                print "current port is %d\n" % port
+                key = str(port) + "-key"
+                value = str(port) + "-value"
+                with connect(port) as client:   
+                 
+                    #For each server, put a key that should be sent to its successor
+                    status = client.put(key, value)
+                    assert status == ChordStatus.OK
 
-                succ_port = int(succ.replace("localhost:", ""))
-                print "port is %d\n" % succ_port
-                with connect(succ_port) as client:
-                    print "connected"
-                    response = client.get_replicate_list()
-                    print len(response.replicate_list)
-                    assert len(response.replicate_list) == 1
+                    #Now find the node that is the master for the key we just put
+                    node_key = client.get_successor_for_key(str(get_hash(key)))
+                    new_port = int(node_key.split(":")[1])
+
+                    #Check the new_port's successor to see if it stored the replicate
+                    if new_port == port:
+                        #If the key was stored on port (ourselves)
+                        succ = client.get_successor()
+                    else:
+                        #Otherwise, get successor
+                        with connect(new_port) as client:
+                            succ = client.get_successor()
+
+                    #Connect to the successor that should have the replicate
+                    succ_port = int(succ.replace("localhost:", ""))
+                    with connect(succ_port) as client:
+                        response = client.get_replicate_list()
+                        #It should only have one source
+                        assert len(response.replicate_list) == 1
+
+                        #Make sure the right source (port) is in the list
+                        find_result = str(response.replicate_list).find(str(new_port))
+                        print find_result
+                        assert find_result != -1
+
         finally:
             for port, name in servers.items():
-                name['server'].terminate()
+                name.terminate()
 
     def test_crash_some_servers(self):
         ports = range(3342, 3347)

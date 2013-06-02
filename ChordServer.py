@@ -161,6 +161,7 @@ class ChordServer(KeyValueStore.Iface):
                 return client.get(key)
 
     def put(self, key, value):
+        #print "Node %s putting %s, %s\n" % (self.node_key, key, value)
         ''' Find the master node and store the key, value there.'''
         master_node = self.get_successor_for_key(str(get_hash(key)))
 
@@ -191,36 +192,47 @@ class ChordServer(KeyValueStore.Iface):
         if self.successor == self.node_key:
             return ChordStatus.OK
 
+        #print "I am %s and my successor is %s\n" % (self.node_key, self.successor)
+        with remote(self.successor) as client:
+            if client is None:
+                #TODO
+                print "client is none"
+            status = client.replicate(key, value, self.node_key)
+            #print status
+            if status != ChordStatus.OK:
+                #TODO
+                print "not ok"
+
+
         #Else, send to successors list
-        for i in range(0, len(self.successor_list)):
-            with remote(self.successor_list[i]) as client:
-                if client is None:
-                    continue
-                status = client.replicate(key, value, self.node_key)
-                if status != ChordStatus.OK:
-                    #TODO: handle failure of replication?
-                    continue
+        # for i in range(0, len(self.successor_list)):
+        #     print i
+        #     with remote(self.successor_list[i]) as client:
+        #         if client is None:
+        #             continue
+        #         status = client.replicate(key, value, self.node_key)
+        #         print status
+        #         if status != ChordStatus.OK:
+        #             #TODO: handle failure of replication?
+        #             continue
         return
 
     def replicate(self, key, value, source):
         #By default, assume we are adding a kv to its replicated store
         with self.lock:
+            #print "I am %s and I got lock! to put %s, %s from %s\n" % (self.node_key, key, value, source)
             #Store in our replicas dict
-            #self.kvstore[key] = value
             self.replicas[source][key] = value
-        return ChordStatus.OK
+            return ChordStatus.OK
 
     def get_replicate_list(self):
-        print "getting replicate"
         response = ReplicasListResponse()
         response.status = ChordStatus.OK
         replicas_list = []
         for s, values in self.replicas.iteritems():
-            print "append"
             replicas_list.append(s)
-        print "replicas list!"
-        print replicas_list
-        response.replicas_list = replicas_list
+        response.replicate_list = replicas_list
+        print response.replicate_list
         return response
 
     def notify(self, node):
@@ -318,13 +330,12 @@ class ChordServer(KeyValueStore.Iface):
                     self.successor_list.insert(0, self.successor)
 
             #self.print_details()
-            self.print_successor_list()
+            #self.print_successor_list()
 
     def handle_successor_failure(self):
         ''' If the successor has failed/unreachable, the first alive 
         and reachable node in the successor_list becomes the successor and 
         the list is updated. If there is no successor, exit'''
-        print "FOUND FAILURE\n"
         with self.lock:
             response = ChordStatus.ERROR
             for i in range(0, len(self.successor_list)):
