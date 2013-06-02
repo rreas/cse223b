@@ -39,6 +39,7 @@ service KeyValueStore {
   ChordStatus put(1: string key, 2: string value),
   ChordStatus notify(1: string node),
   ChordStatus notify_predecessor(1: string node),
+  ChordStatus move_backup(1: string node),
   void print_details(),
   void print_successor_list(),
   ChordStatus ping(),

@@ -32,6 +32,7 @@ if len(sys.argv) <= 1 or sys.argv[1] == '--help':
   print '  ChordStatus put(string key, string value)'
   print '  ChordStatus notify(string node)'
   print '  ChordStatus notify_predecessor(string node)'
+  print '  ChordStatus move_backup(string node)'
   print '  void print_details()'
   print '  void print_successor_list()'
   print '  ChordStatus ping()'
@@ -141,6 +142,12 @@ elif cmd == 'notify_predecessor':
     print 'notify_predecessor requires 1 args'
     sys.exit(1)
   pp.pprint(client.notify_predecessor(args[0],))
+
+elif cmd == 'move_backup':
+  if len(args) != 1:
+    print 'move_backup requires 1 args'
+    sys.exit(1)
+  pp.pprint(client.move_backup(args[0],))
 
 elif cmd == 'print_details':
   if len(args) != 0:

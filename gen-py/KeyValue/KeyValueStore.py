@@ -70,6 +70,13 @@ class Iface(object):
     """
     pass
 
+  def move_backup(self, node):
+    """
+    Parameters:
+     - node
+    """
+    pass
+
   def print_details(self, ):
     pass
 
@@ -356,6 +363,36 @@ class Client(Iface):
       return result.success
     raise TApplicationException(TApplicationException.MISSING_RESULT, "notify_predecessor failed: unknown result");
 
+  def move_backup(self, node):
+    """
+    Parameters:
+     - node
+    """
+    self.send_move_backup(node)
+    return self.recv_move_backup()
+
+  def send_move_backup(self, node):
+    self._oprot.writeMessageBegin('move_backup', TMessageType.CALL, self._seqid)
+    args = move_backup_args()
+    args.node = node
+    args.write(self._oprot)
+    self._oprot.writeMessageEnd()
+    self._oprot.trans.flush()
+
+  def recv_move_backup(self, ):
+    (fname, mtype, rseqid) = self._iprot.readMessageBegin()
+    if mtype == TMessageType.EXCEPTION:
+      x = TApplicationException()
+      x.read(self._iprot)
+      self._iprot.readMessageEnd()
+      raise x
+    result = move_backup_result()
+    result.read(self._iprot)
+    self._iprot.readMessageEnd()
+    if result.success is not None:
+      return result.success
+    raise TApplicationException(TApplicationException.MISSING_RESULT, "move_backup failed: unknown result");
+
   def print_details(self, ):
     self.send_print_details()
     self.recv_print_details()
@@ -500,6 +537,7 @@ class Processor(Iface, TProcessor):
     self._processMap["put"] = Processor.process_put
     self._processMap["notify"] = Processor.process_notify
     self._processMap["notify_predecessor"] = Processor.process_notify_predecessor
+    self._processMap["move_backup"] = Processor.process_move_backup
     self._processMap["print_details"] = Processor.process_print_details
     self._processMap["print_successor_list"] = Processor.process_print_successor_list
     self._processMap["ping"] = Processor.process_ping
@@ -616,6 +654,17 @@ class Processor(Iface, TProcessor):
     result = notify_predecessor_result()
     result.success = self._handler.notify_predecessor(args.node)
     oprot.writeMessageBegin("notify_predecessor", TMessageType.REPLY, seqid)
+    result.write(oprot)
+    oprot.writeMessageEnd()
+    oprot.trans.flush()
+
+  def process_move_backup(self, seqid, iprot, oprot):
+    args = move_backup_args()
+    args.read(iprot)
+    iprot.readMessageEnd()
+    result = move_backup_result()
+    result.success = self._handler.move_backup(args.node)
+    oprot.writeMessageBegin("move_backup", TMessageType.REPLY, seqid)
     result.write(oprot)
     oprot.writeMessageEnd()
     oprot.trans.flush()
@@ -1688,6 +1737,125 @@ class notify_predecessor_result(object):
       oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
       return
     oprot.writeStructBegin('notify_predecessor_result')
+    if self.success is not None:
+      oprot.writeFieldBegin('success', TType.I32, 0)
+      oprot.writeI32(self.success)
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+
+  def validate(self):
+    return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class move_backup_args(object):
+  """
+  Attributes:
+   - node
+  """
+
+  thrift_spec = (
+    None, # 0
+    (1, TType.STRING, 'node', None, None, ), # 1
+  )
+
+  def __init__(self, node=None,):
+    self.node = node
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 1:
+        if ftype == TType.STRING:
+          self.node = iprot.readString();
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('move_backup_args')
+    if self.node is not None:
+      oprot.writeFieldBegin('node', TType.STRING, 1)
+      oprot.writeString(self.node)
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+
+  def validate(self):
+    return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)
+
+class move_backup_result(object):
+  """
+  Attributes:
+   - success
+  """
+
+  thrift_spec = (
+    (0, TType.I32, 'success', None, None, ), # 0
+  )
+
+  def __init__(self, success=None,):
+    self.success = success
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 0:
+        if ftype == TType.I32:
+          self.success = iprot.readI32();
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('move_backup_result')
     if self.success is not None:
       oprot.writeFieldBegin('success', TType.I32, 0)
       oprot.writeI32(self.success)

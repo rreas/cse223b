@@ -335,11 +335,22 @@ class ChordServer(KeyValueStore.Iface):
             #self.print_details()
             #self.print_successor_list()
 
-    def handle_successor_failure(self):
+    def move_backup(self, failed_node):
+        #This node should have a backup and move it to local storage
+        if failed_node not in self.replicas:
+            print "no backup :( at %s\n" % self.node_key
+            return ChordStatus.ERROR
+        
+        for key,value in self.replicas[failed_node]:
+            self.kvstore[k] = v
+        return ChordStatus.OK
+
+
     def handle_successor_failure(self, failed_node=None):
         ''' If the successor has failed/unreachable, the first alive 
         and reachable node in the successor_list becomes the successor and 
         the list is updated. If there is no successor, exit'''
+        print "handing failure, failed node is %s\n" % failed_node
         with self.lock:
             response = ChordStatus.ERROR
             for i in range(0, len(self.successor_list)):
@@ -352,15 +363,23 @@ class ChordServer(KeyValueStore.Iface):
                         continue
                     response = client.get_successor_list()
 
+                #Set new successor
                 self.successor = self.successor_list[i]
                 with remote(self.successor) as client:
                     if client is None:
                         continue
+                    #Tell the new successor to update predecessor
                     client.notify(self.node_key)
+                    #If failed node, then tell new successor to move backup
+                    if failed_node:
+                        print "failing!"
+                        client.move_backup(failed_node)
+
 
                 self.successor_list = response.successor_list
                 del self.successor_list[len(self.successor_list) - 1]
                 self.successor_list.insert(0, self.successor)
+
                 return
 
             # TODO either partitioned or there were more than 'r' failures.

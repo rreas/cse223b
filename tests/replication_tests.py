@@ -68,21 +68,10 @@ class TestReplication:
     
     def test_crash_some_servers(self):
         ports = range(3342, 3347)
-        servers = {}
-
-        for port in ports:
-            if port == ports[0]:
-                servers[port] = spawn_server(port)
-            else:
-                servers[port] = spawn_server(port,
-                                             chord_name="localhost",
-                                             chord_port=ports[0])
-
-        for port in ports:
-            with connect(port) as client:
-                client.print_details()
+        servers = create_servers_in_range(3342, 3347)
                 
         try:
+            print ports[0]
             with connect(ports[0]) as client:
                 client.put('connie', 'lol')
                 client.put('rakesh', 'lol++')
@@ -94,6 +83,7 @@ class TestReplication:
                 resp = client.get('connie')
                 assert resp.value == 'lol'
 
+            print "crashing server with port",port
             servers[port].terminate()
             del servers[port]
 
