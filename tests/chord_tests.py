@@ -132,7 +132,7 @@ class TestChord:
                 client.print_details()
                 
         try:
-            with connect(3342) as client:
+            with connect(ports[0]) as client:
                 client.put('connie', 'lol')
                 client.put('rakesh', 'lol++')
                 key = client.get_successor_for_key(str(get_hash('connie')))
@@ -142,17 +142,46 @@ class TestChord:
 
             servers[port].terminate()
             del servers[port]
-            active_port = servers.keys()[0]
-            with connect(active_port) as client:
-                client.put('russell', 'pumpkin')
-            active_port = servers.keys()[1]
-            with connect(active_port) as client:
+
+            # Can get the data from somewhere (replication).
+            with connect(ports[0]) as client:
+                resp = client.get('connie')
+                assert resp.value == 'lol'
+
+            # New keys still get propagated around.
+            with connect(ports[0]) as client:
+                client.put('russell', 'organic')
+
+            with connect(ports[1]) as client:
                 resp = client.get('russell')
-                assert resp.value == 'pumpkin'
+                assert resp.value == 'organic'
 
         finally:
             for port, name in servers.items():
                 name.terminate()
 
+    def test_new_node_joining_copies_data(self):
+        ports = [3342, 3343]
 
+        try:
+            a = spawn_server(ports[0])
+        
+            # put a key on A
+            with connect(ports[0]) as client:
+                client.put("27", "someval")
+
+            # Join a new server B.
+            b = spawn_server(ports[1],
+                             chord_name="localhost",
+                             chord_port=ports[0])
+
+            with connect(ports[0]) as client:
+                succ = client.get_successor_for_key(str(get_hash("27")))
+                assert succ == "localhost:" + str(ports[1])
+                val = client.get("27")
+                assert val == "someval"
+
+        finally:
+            a.terminate()
+            b.terminate()
 

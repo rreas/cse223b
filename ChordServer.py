@@ -161,6 +161,7 @@ class ChordServer(KeyValueStore.Iface):
         who the master is, it will ask its successor about it'''
         master_node = self.get_successor_for_key(str(get_hash(key)))
 
+        # TODO: return error code if key not found?
         if master_node == self.node_key:
             response = GetValueResponse()
             with self.lock:
@@ -179,7 +180,6 @@ class ChordServer(KeyValueStore.Iface):
 
     def put(self, key, value):
         ''' Find the master node and store the key, value there.'''
-
         master_node = self.get_successor_for_key(str(get_hash(key)))
 
         if master_node == self.node_key:
@@ -199,7 +199,6 @@ class ChordServer(KeyValueStore.Iface):
                 status = client.put(key, value)
                 return status
 
-
     def notify(self, node):
         # TODO: Probably need a check to see if it is truly the predecessor (see Chord)
         self.predecessor = node
@@ -214,7 +213,6 @@ class ChordServer(KeyValueStore.Iface):
             del self.successor_list[len(self.successor_list) - 1]
             self.successor_list.insert(0, self.successor)
         return ChordStatus.OK
-
 
     def inform_predecessor(self, node):
         with remote(self.successor) as client:
@@ -276,11 +274,7 @@ class ChordServer(KeyValueStore.Iface):
 
                     with remote(x) as client:
                         if client is None:
-                            # TODO: what do we do here? The current node heard about a new successor,
-                            # was unable to contact it. For now, doing nothing and continuing as if 
-                            # the new node did not join.
-
-                            # QUESTION: Should this just handle succ fail?
+                            # Were told about an unreachable successor.
                             continue
                         self.successor = x
                         status = client.notify(self.node_key)
@@ -302,8 +296,6 @@ class ChordServer(KeyValueStore.Iface):
             #self.print_details()
             self.print_successor_list()
 
-    # QUESTION: If we are here should we retry the last thing?
-    # QUESTION: Why do we exit?  Can't it just be self?
     def handle_successor_failure(self):
         ''' If the successor has failed/unreachable, the first alive 
         and reachable node in the successor_list becomes the successor and 
