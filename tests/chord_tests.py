@@ -147,11 +147,10 @@ class TestChord:
                 resp = client.get('connie')
                 assert resp.value == 'lol'
 
-            active_port = servers.keys()[0]
-            with connect(active_port) as client:
+            with connect(ports[0]) as client:
                 client.put('russell', 'organic')
-            active_port = servers.keys()[1]
-            with connect(active_port) as client:
+
+            with connect(ports[1]) as client:
                 resp = client.get('russell')
                 assert resp.value == 'organic'
 
