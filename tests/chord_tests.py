@@ -143,10 +143,12 @@ class TestChord:
             servers[port].terminate()
             del servers[port]
 
+            # Can get the data from somewhere (replication).
             with connect(ports[0]) as client:
                 resp = client.get('connie')
                 assert resp.value == 'lol'
 
+            # New keys still get propagated around.
             with connect(ports[0]) as client:
                 client.put('russell', 'organic')
 
@@ -157,4 +159,29 @@ class TestChord:
         finally:
             for port, name in servers.items():
                 name.terminate()
+
+    def test_new_node_joining_copies_data(self):
+        ports = [3342, 3343]
+        try:
+
+            a = spawn_server(ports[0])
+        
+            # put a key on A
+            with connect(ports[0]) as client:
+                client.put("27", "someval")
+
+            # Join a new server B.
+            b = spawn_server(ports[1],
+                             chord_name="localhost",
+                             chord_port=ports[0])
+
+            with connect(ports[0]) as client:
+                succ = client.get_successor_for_key(str(get_hash("27")))
+                assert succ == "localhost:" + str(ports[1])
+                val = client.get("27")
+                assert val == "someval"
+
+        finally:
+            a.terminate()
+            b.terminate()
 
