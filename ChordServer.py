@@ -143,6 +143,7 @@ class ChordServer(KeyValueStore.Iface):
         who the master is, it will ask its successor about it'''
         master_node = self.get_successor_for_key(str(get_hash(key)))
 
+        # TODO: return error code if key not found?
         if master_node == self.node_key:
             response = GetValueResponse()
             with self.lock:

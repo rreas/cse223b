@@ -162,8 +162,8 @@ class TestChord:
 
     def test_new_node_joining_copies_data(self):
         ports = [3342, 3343]
-        try:
 
+        try:
             a = spawn_server(ports[0])
         
             # put a key on A
