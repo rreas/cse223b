@@ -55,7 +55,6 @@ def crash_with_prob():
                 ports.remove(port)
                 servers[port].terminate()
                 del servers[port]
-                sleep(2)
 
 # Spawn servers and store data.
 try:
@@ -80,7 +79,7 @@ try:
                 if client.get(s).value == s:
                     count = count + 1
 
-    print expected, count
+    print "Expected vs. count:", expected, count
     should_quit = True
     sleep(1) # Just give thread time to exit.
 
