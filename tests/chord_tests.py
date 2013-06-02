@@ -15,6 +15,7 @@ from thrift.server import TServer
 from contextlib import contextmanager
 from helpers import encode_node
 
+
 @contextmanager
 def connect(port):
     transport = TTransport.TBufferedTransport(
@@ -25,6 +26,7 @@ def connect(port):
     yield client
     transport.close()
 
+
 def start_server_with_name_port(port, chord_name=None, chord_port=None):
     handler = ChordServer('localhost', port, chord_name, chord_port)
     processor = KeyValueStore.Processor(handler)
@@ -34,15 +36,37 @@ def start_server_with_name_port(port, chord_name=None, chord_port=None):
     server = TServer.TThreadedServer(processor, transport, tfactory, pfactory)
     server.serve()
 
+
 def spawn_server(port, chord_name=None, chord_port=None):
     p = multiprocessing.Process(target=start_server_with_name_port,
             args=(port, chord_name, chord_port))
     p.start()
     sleep(1)
     return p
- 
+
+
+def create_servers_in_range(from_port, to_port):
+    ports = range(from_port, to_port)
+    servers = {}
+
+    for port in ports:
+        servers[port] = {}
+        if port == ports[0]:
+            servers[port]['server'] = spawn_server(port)
+        else:
+            servers[port]['server'] = spawn_server(port,
+                                         chord_name="localhost",
+                                         chord_port=ports[0])
+        sleep(2)
+
+    for port in ports:
+        with connect(port) as client:
+            client.print_details()
+    return servers
+
+
 class TestChord:
-   
+
     #Test connecting one server-client
     def test_chord_create(self):
         a = spawn_server(3342)
@@ -203,6 +227,29 @@ class TestChord:
             for port, name in servers.items():
                 name.terminate()
 
+    def test_data_replication(self):
+        #For each server, check that the successor has its data
+        ports = range(3342, 3345)
+        servers = create_servers_in_range(3342, 3345)
+        try:
+            #For each port, get its successor
+            for port in ports:
+                print "Port is %s\n" % port
+                with connect(port) as client:
+                    succ = client.get_successor()
+                    print "Successor is %s\n" % succ
+                    servers[port]['succ'] = succ
+
+                succ_port = int(succ.replace("localhost:", ""))
+                print "port is %d\n" % succ_port
+                with connect(succ_port) as client:
+                    print "connected"
+                    response = client.get_replicate_list()
+                    print len(response.replicate_list)
+                    assert len(response.replicate_list) == 1
+        finally:
+            for port, name in servers.items():
+                name['server'].terminate()
 
     def test_crash_some_servers(self):
         ports = range(3342, 3347)

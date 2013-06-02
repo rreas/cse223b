@@ -36,6 +36,7 @@ if len(sys.argv) <= 1 or sys.argv[1] == '--help':
   print '  void print_successor_list()'
   print '  ChordStatus ping()'
   print '  ChordStatus replicate(string key, string value, string source)'
+  print '  ReplicasListResponse get_replicate_list()'
   print ''
   sys.exit(0)
 
@@ -164,6 +165,12 @@ elif cmd == 'replicate':
     print 'replicate requires 3 args'
     sys.exit(1)
   pp.pprint(client.replicate(args[0],args[1],args[2],))
+
+elif cmd == 'get_replicate_list':
+  if len(args) != 0:
+    print 'get_replicate_list requires 0 args'
+    sys.exit(1)
+  pp.pprint(client.get_replicate_list())
 
 else:
   print 'Unrecognized method %s' % cmd

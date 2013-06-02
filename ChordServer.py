@@ -203,11 +203,25 @@ class ChordServer(KeyValueStore.Iface):
         return
 
     def replicate(self, key, value, source):
+        #By default, assume we are adding a kv to its replicated store
         with self.lock:
             #Store in our replicas dict
             #self.kvstore[key] = value
             self.replicas[source][key] = value
         return ChordStatus.OK
+
+    def get_replicate_list(self):
+        print "getting replicate"
+        response = ReplicasListResponse()
+        response.status = ChordStatus.OK
+        replicas_list = []
+        for s, values in self.replicas.iteritems():
+            print "append"
+            replicas_list.append(s)
+        print "replicas list!"
+        print replicas_list
+        response.replicas_list = replicas_list
+        return response
 
     def notify(self, node):
         # TODO: Probably need a check to see if it is truly the predecessor (see Chord)
