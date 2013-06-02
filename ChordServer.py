@@ -209,12 +209,13 @@ class ChordServer(KeyValueStore.Iface):
         #     print i
         #     with remote(self.successor_list[i]) as client:
         #         if client is None:
-        #             continue
+        #             #TODO
+        #             print "client is none"
         #         status = client.replicate(key, value, self.node_key)
-        #         print status
+        #         #print status
         #         if status != ChordStatus.OK:
-        #             #TODO: handle failure of replication?
-        #             continue
+        #             #TODO
+        #             print "not ok"
         return
 
     def replicate(self, key, value, source):
