@@ -32,9 +32,12 @@ if len(sys.argv) <= 1 or sys.argv[1] == '--help':
   print '  ChordStatus put(string key, string value)'
   print '  ChordStatus notify(string node)'
   print '  ChordStatus notify_predecessor(string node)'
+  print '  ChordStatus move_backup(string node)'
   print '  void print_details()'
   print '  void print_successor_list()'
   print '  ChordStatus ping()'
+  print '  ChordStatus replicate(string key, string value, string source)'
+  print '  ReplicasListResponse get_replicate_list()'
   print ''
   sys.exit(0)
 
@@ -140,6 +143,12 @@ elif cmd == 'notify_predecessor':
     sys.exit(1)
   pp.pprint(client.notify_predecessor(args[0],))
 
+elif cmd == 'move_backup':
+  if len(args) != 1:
+    print 'move_backup requires 1 args'
+    sys.exit(1)
+  pp.pprint(client.move_backup(args[0],))
+
 elif cmd == 'print_details':
   if len(args) != 0:
     print 'print_details requires 0 args'
@@ -157,6 +166,18 @@ elif cmd == 'ping':
     print 'ping requires 0 args'
     sys.exit(1)
   pp.pprint(client.ping())
+
+elif cmd == 'replicate':
+  if len(args) != 3:
+    print 'replicate requires 3 args'
+    sys.exit(1)
+  pp.pprint(client.replicate(args[0],args[1],args[2],))
+
+elif cmd == 'get_replicate_list':
+  if len(args) != 0:
+    print 'get_replicate_list requires 0 args'
+    sys.exit(1)
+  pp.pprint(client.get_replicate_list())
 
 else:
   print 'Unrecognized method %s' % cmd

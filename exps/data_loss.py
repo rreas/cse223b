@@ -35,9 +35,9 @@ all_data = set()
 while(len(all_data) < 1000):
     all_data.add(fake_data(10))
 
-ports = set(range(3000, 3003))
+ports = set(range(3000, 3008))
 plock = threading.Lock() # Just to avoid crashing while getting data.
-crash_prob = 0.01
+crash_prob = 0.05
 should_quit = False
 
 def crash_with_prob():
@@ -51,19 +51,24 @@ def crash_with_prob():
         if random.random() < crash_prob:
             with plock:
                 port = random.choice(list(ports))
-                print "I KILL YOU PORT", port
+                print "\nI KILL YOU PORT", port
                 ports.remove(port)
                 servers[port].terminate()
                 del servers[port]
+            sleep(1)
 
 # Spawn servers and store data.
 try:
+    print "Starting servers."
     servers = create_servers_in_range(min(ports), max(ports)+1)
+    print "Done."
 
     # Store all the data.
+    print "Putting data."
     with connect(min(ports)) as client:
         for s in all_data:
             client.put(s,s)
+    print "Done."
 
     # Start thread that can crash stuff.
     thread = threading.Thread(target=crash_with_prob)
@@ -78,8 +83,10 @@ try:
             with connect(min(ports)) as client:
                 if client.get(s).value == s:
                     count = count + 1
+        sys.stdout.write('.')
+        sys.stdout.flush()
 
-    print "Expected vs. count:", expected, count
+    print "\nExpected vs. count:", expected, count
     should_quit = True
     sleep(1) # Just give thread time to exit.
 

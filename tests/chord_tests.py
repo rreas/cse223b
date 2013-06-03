@@ -14,35 +14,12 @@ from thrift.server import TServer
 
 from contextlib import contextmanager
 from helpers import encode_node
+from TestHelpers import *
 
-@contextmanager
-def connect(port):
-    transport = TTransport.TBufferedTransport(
-            TSocket.TSocket('localhost', port))
-    protocol = TBinaryProtocol.TBinaryProtocol(transport)
-    client = KeyValueStore.Client(protocol)
-    transport.open()
-    yield client
-    transport.close()
 
-def start_server_with_name_port(port, chord_name=None, chord_port=None):
-    handler = ChordServer('localhost', port, chord_name, chord_port)
-    processor = KeyValueStore.Processor(handler)
-    transport = TSocket.TServerSocket('localhost', port)
-    tfactory = TTransport.TBufferedTransportFactory()
-    pfactory = TBinaryProtocol.TBinaryProtocolFactory()
-    server = TServer.TThreadedServer(processor, transport, tfactory, pfactory)
-    server.serve()
 
-def spawn_server(port, chord_name=None, chord_port=None):
-    p = multiprocessing.Process(target=start_server_with_name_port,
-            args=(port, chord_name, chord_port))
-    p.start()
-    sleep(1)
-    return p
- 
 class TestChord:
-   
+
     #Test connecting one server-client
     def test_chord_create(self):
         a = spawn_server(3342)
@@ -115,8 +92,10 @@ class TestChord:
             a.terminate()
             b.terminate()
 
-    def test_crash_some_servers(self):
-        ports = range(3342, 3347)
+    def test_chord_join_complex(self):
+        ports = range(3342, 3345)
+        pred_set = set(ports)
+        succ_set = set(ports)
         servers = {}
 
         for port in ports:
@@ -126,39 +105,81 @@ class TestChord:
                 servers[port] = spawn_server(port,
                                              chord_name="localhost",
                                              chord_port=ports[0])
+            sleep(2)
 
         for port in ports:
             with connect(port) as client:
                 client.print_details()
-                
+
         try:
-            with connect(ports[0]) as client:
-                client.put('connie', 'lol')
-                client.put('rakesh', 'lol++')
-                key = client.get_successor_for_key(str(get_hash('connie')))
-                port = int(key.split(":")[1])
-                resp = client.get('connie')
-                assert resp.value == 'lol'
+            #We want to check their successors and predecessors
+            for port in ports:
+                with connect(port) as client:
 
-            servers[port].terminate()
-            del servers[port]
+                    #Check predecessor
+                    pred = client.get_predecessor()
+                    pred_port = int(pred.replace("localhost:", ""))
+                    assert pred_port in pred_set
+                    pred_set.remove(pred_port)
 
-            # Can get the data from somewhere (replication).
-            with connect(ports[0]) as client:
-                resp = client.get('connie')
-                assert resp.value == 'lol'
+                    #Check successor
+                    succ = client.get_successor()
+                    succ_port = int(succ.replace("localhost:", ""))
+                    assert succ_port in succ_set
+                    succ_set.remove(succ_port)
 
-            # New keys still get propagated around.
-            with connect(ports[0]) as client:
-                client.put('russell', 'organic')
-
-            with connect(ports[1]) as client:
-                resp = client.get('russell')
-                assert resp.value == 'organic'
-
+                    assert succ is not pred
         finally:
             for port, name in servers.items():
                 name.terminate()
+
+
+    def test_crash_server_check(self):
+        ports = range(3342, 3345)
+        pred_set = set(ports)
+        succ_set = set(ports)
+        servers = {}
+
+        for port in ports:
+            if port == ports[0]:
+                servers[port] = spawn_server(port)
+            else:
+                servers[port] = spawn_server(port,
+                                             chord_name="localhost",
+                                             chord_port=ports[0])
+            sleep(2)
+
+        for port in ports:
+            with connect(port) as client:
+                client.print_details()
+
+        try:
+            #We want to check kill a server and see if the successors and predecessors update
+            print "Now terminating server: %d" % port
+            servers[port].terminate()
+            del servers[port]
+            ports.remove(port)
+
+            for port in ports:
+                with connect(port) as client:
+
+                    #Check predecessor
+                    pred = client.get_predecessor()
+                    pred_port = int(pred.replace("localhost:", ""))
+                    assert pred_port in pred_set
+                    pred_set.remove(pred_port)
+
+                    #Check successor
+                    succ = client.get_successor()
+                    succ_port = int(succ.replace("localhost:", ""))
+                    assert succ_port in succ_set
+                    succ_set.remove(succ_port)
+
+                    assert succ is not pred
+        finally:
+            for port, name in servers.items():
+                name.terminate()
+
 
     def test_new_node_joining_copies_data(self):
         ports = [3342, 3343]
