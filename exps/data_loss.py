@@ -47,7 +47,7 @@ def crash_with_prob():
         if len(ports) == 1: # Don't crash the last server.
             return
 
-        sleep(0.01)
+        sleep(0.1)
         if random.random() < crash_prob:
             with plock:
                 port = random.choice(list(ports))
