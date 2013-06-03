@@ -1,5 +1,5 @@
 from contextlib import contextmanager
-from hashlib import md5
+from hashlib import md5, sha1
 
 # Thrift imports
 from thrift import Thrift
@@ -19,7 +19,7 @@ def encode_node(hostname, port):
     return hostname + DELIMITER + str(port)
 
 def get_hash(key):
-    return int(md5(key).hexdigest(), 16)
+    return int(sha1(key).hexdigest(), 16)
 
 def is_key_between(key, begin, end):
     if key == begin:

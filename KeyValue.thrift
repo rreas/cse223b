@@ -44,6 +44,7 @@ service KeyValueStore {
   void print_successor_list(),
   ChordStatus ping(),
   ChordStatus replicate(1: string key, 2: string value, 3: string source),
-  ReplicasListResponse get_replicate_list()
+  ReplicasListResponse get_replicate_list(),
+  i64 get_key_count()
 }
 

@@ -44,19 +44,20 @@ def spawn_server(port, chord_name=None, chord_port=None):
     return p
 
 
-def create_servers_in_range(from_port, to_port):
-    ports = range(from_port, to_port)
-    servers = {}
+def create_servers_from_port_list(port_set_or_range):
+    ports = list(port_set_or_range)
+    servers = { ports[0]: spawn_server(ports[0]) }
 
-    for port in ports:
-        servers[port] = {}
-        if port == ports[0]:
-            servers[port] = spawn_server(port)
-        else:
-            servers[port] = spawn_server(port,
-                                         chord_name="localhost",
-                                         chord_port=ports[0])
+    for port in ports[1:]:
+        servers[port] = spawn_server(port,
+                                     chord_name="localhost",
+                                     chord_port=ports[0])
         sleep(2)
     
     return servers
+
+
+def create_servers_in_range(from_port, to_port):
+    return create_servers_from_port_list(range(from_port, to_port))
+
 

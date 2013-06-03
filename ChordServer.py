@@ -141,6 +141,11 @@ class ChordServer(KeyValueStore.Iface):
     def get_successor(self):
         return str(self.successor)
 
+    def get_key_count(self):
+        """Number of keys managed by this node."""
+        with self.lock:
+            return len(self.kvstore.keys())
+
     def get(self, key):
         ''' Get the key from the master node. If the current node does not know
         who the master is, it will ask its successor about it'''
