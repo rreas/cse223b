@@ -31,7 +31,7 @@ def fake_data(length):
     data = [random.choice(data_source) for x in range(length)]
     return ''.join(data)
 
-num_data_elements = 200
+num_data_elements = 500
 num_servers = 10
 
 # Assign random ports.

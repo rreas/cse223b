@@ -1,3 +1,6 @@
+# Plot min, max, average
+# function of # of servers
+
 import sys
 sys.path.append('.')
 sys.path.append('tests/')
