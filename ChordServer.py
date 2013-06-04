@@ -101,7 +101,7 @@ class ChordServer(KeyValueStore.Iface):
 
         # If the key is located between the current node and its successor,
         # just return the successor.
-        if is_key_between(hashcode_int, self.hashcode, get_hash(self.successor)):
+        if is_hashcode_between(hashcode_int, self.hashcode, get_hash(self.successor)):
             return self.successor
 
         # Pass the buck to the successor and let it find the master.
@@ -118,7 +118,6 @@ class ChordServer(KeyValueStore.Iface):
     def get_init_data(self, node_key):
         ''' Provide the data required by a new server to be able to serve keys
         and handle server failures'''
-
         # dummy for now.
         data_response = DataResponse()
         data_response.kvstore = self.get_kv_for_node(node_key)
@@ -135,11 +134,11 @@ class ChordServer(KeyValueStore.Iface):
         return_dict = {}
         if self.predecessor is None:
             for key in self.kvstore:
-                if is_key_between(self.hashcode, get_hash(node)):
+                if is_hashcode_between(get_hash(key), self.hashcode, get_hash(node)):
                     return_dict[key] = self.kvstore[key]
         else:
             for key in self.kvstore:
-                if is_key_between(get_hash(self.predecessor), get_hash(node)):
+                if is_hashcode_between(get_hash(key), get_hash(self.predecessor), get_hash(node)):
                     return_dict[key] = self.kvstore[key]
 
         return return_dict
@@ -294,7 +293,7 @@ class ChordServer(KeyValueStore.Iface):
                     self.successor_list.insert(0, self.successor)
 
             #self.print_details()
-            self.print_successor_list()
+            #self.print_successor_list()
 
     def handle_successor_failure(self):
         ''' If the successor has failed/unreachable, the first alive 
@@ -332,6 +331,7 @@ class ChordServer(KeyValueStore.Iface):
         print "HashCode ", self.hashcode
         print "successor ", self.successor
         print "predecessor ", self.predecessor
+        print "kvstore size", len(self.kvstore)
         print "===============\n\n"
 
     def print_successor_list(self):

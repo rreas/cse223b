@@ -143,11 +143,6 @@ class TestChord:
             servers[port].terminate()
             del servers[port]
 
-            # Can get the data from somewhere (replication).
-            with connect(ports[0]) as client:
-                resp = client.get('connie')
-                assert resp.value == 'lol'
-
             # New keys still get propagated around.
             with connect(ports[0]) as client:
                 client.put('russell', 'organic')
@@ -178,8 +173,8 @@ class TestChord:
             with connect(ports[0]) as client:
                 succ = client.get_successor_for_key(str(get_hash("27")))
                 assert succ == "localhost:" + str(ports[1])
-                val = client.get("27")
-                assert val == "someval"
+                resp = client.get("27")
+                assert resp.value == "someval"
 
         finally:
             a.terminate()

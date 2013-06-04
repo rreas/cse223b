@@ -21,15 +21,15 @@ def encode_node(hostname, port):
 def get_hash(key):
     return int(md5(key).hexdigest(), 16)
 
-def is_key_between(key, begin, end):
-    if key == begin:
+def is_hashcode_between(hashcode, begin, end):
+    if hashcode == begin:
         return end
     if end < begin:
-        if key > end and key > begin:
+        if hashcode > end and hashcode > begin:
             return True
-        if key < end and key < begin:
+        if hashcode < end and hashcode < begin:
             return True
-    elif key > begin and key < end:
+    elif hashcode > begin and hashcode < end:
         return True
 
     return False
