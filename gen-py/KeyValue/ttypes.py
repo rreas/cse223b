@@ -298,3 +298,83 @@ class SuccessorListResponse(object):
 
   def __ne__(self, other):
     return not (self == other)
+
+class ReplicasListResponse(object):
+  """
+  Attributes:
+   - status
+   - replicate_list
+  """
+
+  thrift_spec = (
+    None, # 0
+    (1, TType.I32, 'status', None, None, ), # 1
+    (2, TType.LIST, 'replicate_list', (TType.STRING,None), None, ), # 2
+  )
+
+  def __init__(self, status=None, replicate_list=None,):
+    self.status = status
+    self.replicate_list = replicate_list
+
+  def read(self, iprot):
+    if iprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and isinstance(iprot.trans, TTransport.CReadableTransport) and self.thrift_spec is not None and fastbinary is not None:
+      fastbinary.decode_binary(self, iprot.trans, (self.__class__, self.thrift_spec))
+      return
+    iprot.readStructBegin()
+    while True:
+      (fname, ftype, fid) = iprot.readFieldBegin()
+      if ftype == TType.STOP:
+        break
+      if fid == 1:
+        if ftype == TType.I32:
+          self.status = iprot.readI32();
+        else:
+          iprot.skip(ftype)
+      elif fid == 2:
+        if ftype == TType.LIST:
+          self.replicate_list = []
+          (_etype26, _size23) = iprot.readListBegin()
+          for _i27 in xrange(_size23):
+            _elem28 = iprot.readString();
+            self.replicate_list.append(_elem28)
+          iprot.readListEnd()
+        else:
+          iprot.skip(ftype)
+      else:
+        iprot.skip(ftype)
+      iprot.readFieldEnd()
+    iprot.readStructEnd()
+
+  def write(self, oprot):
+    if oprot.__class__ == TBinaryProtocol.TBinaryProtocolAccelerated and self.thrift_spec is not None and fastbinary is not None:
+      oprot.trans.write(fastbinary.encode_binary(self, (self.__class__, self.thrift_spec)))
+      return
+    oprot.writeStructBegin('ReplicasListResponse')
+    if self.status is not None:
+      oprot.writeFieldBegin('status', TType.I32, 1)
+      oprot.writeI32(self.status)
+      oprot.writeFieldEnd()
+    if self.replicate_list is not None:
+      oprot.writeFieldBegin('replicate_list', TType.LIST, 2)
+      oprot.writeListBegin(TType.STRING, len(self.replicate_list))
+      for iter29 in self.replicate_list:
+        oprot.writeString(iter29)
+      oprot.writeListEnd()
+      oprot.writeFieldEnd()
+    oprot.writeFieldStop()
+    oprot.writeStructEnd()
+
+  def validate(self):
+    return
+
+
+  def __repr__(self):
+    L = ['%s=%r' % (key, value)
+      for key, value in self.__dict__.iteritems()]
+    return '%s(%s)' % (self.__class__.__name__, ', '.join(L))
+
+  def __eq__(self, other):
+    return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
+
+  def __ne__(self, other):
+    return not (self == other)

@@ -24,6 +24,11 @@ struct SuccessorListResponse {
   2: list<string> successor_list
 }
 
+struct ReplicasListResponse {
+  1: ChordStatus status,
+  2: list<string> replicate_list
+}
+
 service KeyValueStore {
   GetValueResponse get(1: string key),
   string get_predecessor(),
@@ -34,8 +39,12 @@ service KeyValueStore {
   ChordStatus put(1: string key, 2: string value),
   ChordStatus notify(1: string node),
   ChordStatus notify_predecessor(1: string node),
+  ChordStatus move_backup(1: string node),
   void print_details(),
   void print_successor_list(),
-  ChordStatus ping()
+  ChordStatus ping(),
+  ChordStatus replicate(1: string key, 2: string value, 3: string source),
+  ReplicasListResponse get_replicate_list(),
+  i64 get_key_count()
 }
 
