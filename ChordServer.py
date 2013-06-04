@@ -72,7 +72,7 @@ class ChordServer(KeyValueStore.Iface):
         del self.successor_list[len(self.successor_list) - 1]
         self.successor_list.insert(0, self.successor)
 
-        self.inform_predecessor(self.node_key)
+        #self.inform_predecessor(self.node_key)
         # TODO: check status?
         with remote(self.successor) as client:
             if client is None:
