@@ -200,7 +200,7 @@ class ChordServer(KeyValueStore.Iface):
         #print "I am %s and my successor is %s\n" % (self.node_key, self.successor)
         with remote(self.successor) as client:
             if client is None:
-                #TODO
+                #TODO: handle failed successor?
                 print "client is none"
             status = client.replicate(key, value, self.node_key)
             #print status
@@ -222,6 +222,23 @@ class ChordServer(KeyValueStore.Iface):
         #             #TODO
         #             print "not ok"
         return
+
+    def replicate_all_keys(self):
+        #For everything in our kvstore, send to successor
+        if self.successor == self.node_key:
+            return ChordStatus.OK
+
+        with remote(self.successor) as client:
+            if client is None:
+                #TODO: handle failed successor?
+                print "client is none"
+            for k,v in self.kvstore:
+                status = client.replicate(k, v, self.node_key)
+                #print status
+                if status != ChordStatus.OK:
+                    #TODO
+                    print "not ok"
+
 
     def replicate(self, key, value, source):
         #By default, assume we are adding a kv to its replicated store
@@ -320,6 +337,9 @@ class ChordServer(KeyValueStore.Iface):
                             continue
                         self.successor = x
                         status = client.notify(self.node_key)
+
+                        #We have a new successor, so also send them our data to be backed up
+                        self.replicate_all_keys()
                     # TODO check status and take action.
 
             # This is just maintenance work?
