@@ -175,7 +175,7 @@ class ChordServer(KeyValueStore.Iface):
                 self.kvstore[key] = value
 
                 #Send our data to our successors list
-                self.replicate_dat_shit(key, value)
+                self.replicate_one_key(key, value)
             return ChordStatus.OK  
         else:
             #Connect to master node to send kv
@@ -192,7 +192,7 @@ class ChordServer(KeyValueStore.Iface):
                 status = client.put(key, value)
                 return status
 
-    def replicate_dat_shit(self, key, value, replicas=1):
+    def replicate_one_key(self, key, value, replicas=1):
         #Replicate this shit! With thrift RPC replicate call
         if self.successor == self.node_key:
             return ChordStatus.OK
@@ -350,6 +350,10 @@ class ChordServer(KeyValueStore.Iface):
         for key,value in self.replicas[failed_node].items():
             print "moving %s, %s" % (key, value)
             self.kvstore[key] = value
+
+            #Then, send our moved data to be backed up by successor
+            self.replicate_one_key(key, value)
+
         return ChordStatus.OK
 
 
