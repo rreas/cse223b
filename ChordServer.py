@@ -57,6 +57,7 @@ class ChordServer(KeyValueStore.Iface):
             self.initialize()
         else:
             self.initialize_successor_list()
+            self.build_finger_table()
         self.initialize_threads()
         
 
@@ -100,13 +101,13 @@ class ChordServer(KeyValueStore.Iface):
 
     def build_finger_table(self):
         for i in range(0, FINGER_TABLE_LENGTH):
-            self.finger_node_table.append(self.successor)
+            self.finger_table.append(self.successor)
 
-     def get_best_guess(self, hashcode):
+    def get_best_guess(self, hashcode):
         for i in range(FINGER_TABLE_LENGTH - 1, -1, -1):
-            node = self.finger_node_table[i]
+            node = self.finger_table[i]
             node_hashcode = get_hash(node)
-            if is_key_between(hashcode, self.hashcode, node_hashcode):
+            if is_hashcode_between(hashcode, self.hashcode, node_hashcode):
                 return node
         return self.node_key
 
@@ -285,6 +286,7 @@ class ChordServer(KeyValueStore.Iface):
                     if client is None:
                         # Could not connect to successor.
                         self.handle_successor_failure()
+                        self.fix_finger_table();
                         continue
 
                     # See if there is really a node between us.
@@ -316,6 +318,7 @@ class ChordServer(KeyValueStore.Iface):
                 with remote(self.successor) as client:
                     if client is None:
                         self.handle_successor_failure()
+                        self.fix_finger_table();
                         continue
                     response = client.get_successor_list()
                     # Get updated successor_list from successor and make adjustments.
@@ -325,7 +328,7 @@ class ChordServer(KeyValueStore.Iface):
 
             #self.print_details()
             #self.print_successor_list()
-
+            self.fix_finger_table();
 
     def fix_finger_table(self):
         #while True:
@@ -336,7 +339,7 @@ class ChordServer(KeyValueStore.Iface):
             successor = self.get_successor_for_key(str(hashkey))
 
             if successor is not None:
-                self.finger_node_table[i] = successor
+                self.finger_table[i] = successor
 
 
     def handle_successor_failure(self):
