@@ -102,6 +102,14 @@ class ChordServer(KeyValueStore.Iface):
         for i in range(0, FINGER_TABLE_LENGTH):
             self.finger_node_table.append(self.successor)
 
+     def get_best_guess(self, hashcode):
+        for i in range(FINGER_TABLE_LENGTH - 1, -1, -1):
+            node = self.finger_node_table[i]
+            node_hashcode = get_hash(node)
+            if is_key_between(hashcode, self.hashcode, node_hashcode):
+                return node
+        return self.node_key
+
     def get_successor_for_key(self, hashcode):
         ''' Given a particular hashed key, find its successor in Chord. 
         This is O(n). Each node asks its successor to find the master,
@@ -115,7 +123,14 @@ class ChordServer(KeyValueStore.Iface):
         if is_hashcode_between(hashcode_int, self.hashcode, get_hash(self.successor)):
             return self.successor
 
-        # Pass the buck to the successor and let it find the master.
+        target_node = self.get_best_guess(hashcode_int)
+        if target_node != self.node_key:
+            with remote(target_node) as client:
+                return client.get_successor_for_key(hashcode)
+        else:
+            return self.node_key
+
+        '''# Pass the buck to the successor and let it find the master.
         with remote(self.successor) as client:
             if client is None:
                 self.handle_successor_failure()
@@ -124,7 +139,7 @@ class ChordServer(KeyValueStore.Iface):
                 with remote(self.successor) as client:
                     return client.get_successor_for_key(hashcode)
 
-            return client.get_successor_for_key(hashcode)
+            return client.get_successor_for_key(hashcode)'''
 
     def get_init_data(self, node_key):
         ''' Provide the data required by a new server to be able to serve keys
@@ -310,6 +325,19 @@ class ChordServer(KeyValueStore.Iface):
 
             #self.print_details()
             #self.print_successor_list()
+
+
+    def fix_finger_table(self):
+        #while True:
+            #print "Fixing"
+        for i in range(0, FINGER_TABLE_LENGTH):
+            #sleep(5)
+            hashkey = (self.hashcode + long(pow(2, i))) % MAX
+            successor = self.get_successor_for_key(str(hashkey))
+
+            if successor is not None:
+                self.finger_node_table[i] = successor
+
 
     def handle_successor_failure(self):
         ''' If the successor has failed/unreachable, the first alive 
