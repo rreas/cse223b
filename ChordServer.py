@@ -16,6 +16,11 @@ from KeyValue import KeyValueStore
 from KeyValue.ttypes import *
 from helpers import *
 
+# This is dependent on the hash we use.
+# MD5 creates a 128 bit digest.
+FINGER_TABLE_LENGTH = 128
+MAX = long(pow(2, FINGER_TABLE_LENGTH))
+
 # The number of successive server failures that can be tolerated.
 class ChordServer(KeyValueStore.Iface):
 
@@ -31,6 +36,7 @@ class ChordServer(KeyValueStore.Iface):
         self.successor = self.node_key
         self.predecessor = None
         self.successor_list = []
+        self.finger_table = []
         self.hashcode = get_hash(self.node_key)
         self.lock = threading2.Lock()
         
@@ -72,6 +78,7 @@ class ChordServer(KeyValueStore.Iface):
         del self.successor_list[len(self.successor_list) - 1]
         self.successor_list.insert(0, self.successor)
 
+        self.build_finger_table();
         #self.inform_predecessor(self.node_key)
         # TODO: check status?
         with remote(self.successor) as client:
@@ -90,6 +97,10 @@ class ChordServer(KeyValueStore.Iface):
         successor_list to just the current node'''
         for i in range(0, self.successor_list_length):
             self.successor_list.append(self.node_key)
+
+    def build_finger_table(self):
+        for i in range(0, FINGER_TABLE_LENGTH):
+            self.finger_node_table.append(self.successor)
 
     def get_successor_for_key(self, hashcode):
         ''' Given a particular hashed key, find its successor in Chord. 
