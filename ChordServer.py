@@ -39,6 +39,7 @@ class ChordServer(KeyValueStore.Iface):
         self.finger_table = []
         self.hashcode = get_hash(self.node_key)
         self.lock = threading2.Lock()
+        self.f = open(str(port), 'w')
         
         # Property can be changed by external code.
         self.successor_list_length = 5
@@ -59,7 +60,7 @@ class ChordServer(KeyValueStore.Iface):
             self.initialize_successor_list()
             self.build_finger_table()
         self.initialize_threads()
-        
+        #self.write_details()
 
     def initialize(self):
         ''' Get the initial data from the successor. Once this method completes,
@@ -101,20 +102,28 @@ class ChordServer(KeyValueStore.Iface):
 
     def build_finger_table(self):
         for i in range(0, FINGER_TABLE_LENGTH):
-            self.finger_table.append(self.successor)
+            if self.successor == self.node_key:
+                self.finger_table.append(self.successor)
+                continue
+            hashkey = (self.hashcode + long(pow(2, i))) % MAX
+            with remote(self.successor) as client:
+                if client is None:
+                    print "Unable to build_finger_table. Exiting"
+                    os._exit(1)
+                self.finger_table.append(client.get_successor_for_key(str(hashkey)))
 
     def get_best_guess(self, hashcode):
-        for i in range(FINGER_TABLE_LENGTH - 1, -1, -1):
-            node = self.finger_table[i]
-            node_hashcode = get_hash(node)
-            if is_hashcode_between(hashcode, self.hashcode, node_hashcode):
-                return node
-        return self.node_key
+        with self.lock:
+            for i in range(FINGER_TABLE_LENGTH - 1, -1, -1):
+                node = self.finger_table[i]
+                node_hashcode = get_hash(node)
+                if is_hashcode_between(node_hashcode, self.hashcode, hashcode):
+                    return node, i
+            return self.node_key, -1
 
     def get_successor_for_key(self, hashcode):
         ''' Given a particular hashed key, find its successor in Chord. 
-        This is O(n). Each node asks its successor to find the master,
-        unless the master is the successor itself.'''
+        '''
         hashcode_int = int(hashcode)
         if self.successor == self.node_key:
             return self.node_key
@@ -124,11 +133,22 @@ class ChordServer(KeyValueStore.Iface):
         if is_hashcode_between(hashcode_int, self.hashcode, get_hash(self.successor)):
             return self.successor
 
-        target_node = self.get_best_guess(hashcode_int)
+        target_node, index = self.get_best_guess(hashcode_int)
+        #self.f.write("\ncontacting " + target_node + " for " + str(hashcode_int) + "\n")
+        #print "Target node at %s is %s" %(self.node_key, target_node)
         if target_node != self.node_key:
+            #print "Remote node at %s is %s" %(self.node_key, target_node)
             with remote(target_node) as client:
+                if client is None:
+                    target_node = self.handle_finger_failure(index)
+                    #print "New remote node is ", target_node
+                    #Retry
+                    if target_node != self.node_key:
+                        with remote(target_node) as client:
+                            return client.get_successor_for_key(hashcode)
                 return client.get_successor_for_key(hashcode)
         else:
+            "Returning self ", self.node_key
             return self.node_key
 
         '''# Pass the buck to the successor and let it find the master.
@@ -188,6 +208,8 @@ class ChordServer(KeyValueStore.Iface):
             return len(self.kvstore.keys())
 
     def get(self, key):
+        #self.f.write("received get at " + self.node_key + "\n")
+        #print "Node %s received GET request for %s" %(self.node_key, key)
         ''' Get the key from the master node. If the current node does not know
         who the master is, it will ask its successor about it'''
         master_node = self.get_successor_for_key(str(get_hash(key)))
@@ -195,6 +217,7 @@ class ChordServer(KeyValueStore.Iface):
         # TODO: return error code if key not found?
         if master_node == self.node_key:
             response = GetValueResponse()
+            #print "GET Key %s should be local at %s" %(key, self.node_key)
             with self.lock:
                 response.value = self.kvstore[key]
             response.status = ChordStatus.OK
@@ -210,10 +233,14 @@ class ChordServer(KeyValueStore.Iface):
                 return client.get(key)
 
     def put(self, key, value):
+        #print "Node %s received put request for %s" %(self.node_key, key)
         ''' Find the master node and store the key, value there.'''
         master_node = self.get_successor_for_key(str(get_hash(key)))
 
         if master_node == self.node_key:
+            #print "Master is self ", self.node_key
+            #self.f.write("Key" + key + " put at " + self.node_key+ "\n")
+            #print "PUT Key %s should be local at %s" %(key, self.node_key)
             with self.lock:
                 self.kvstore[key] = value
 
@@ -224,8 +251,9 @@ class ChordServer(KeyValueStore.Iface):
                     self.handle_successor_failure()
                     # This happens only when the immediate successor had the key and failed.
                     # Retry after fix.
-                    with remote(self.successor) as client:
-                        return client.put(key, value)
+                    return ChordStatus.ERROR
+                    '''with remote(self.successor) as client:
+                        return client.put(key, value)'''
 
                 status = client.put(key, value)
                 return status
@@ -336,11 +364,9 @@ class ChordServer(KeyValueStore.Iface):
         for i in range(0, FINGER_TABLE_LENGTH):
             #sleep(5)
             hashkey = (self.hashcode + long(pow(2, i))) % MAX
-            successor = self.get_successor_for_key(str(hashkey))
-
-            if successor is not None:
-                self.finger_table[i] = successor
-
+            self.finger_table[i] = self.get_successor_for_key(str(hashkey))
+            #self.f.write(str(float(hashkey)) + "  " + str(i) + "  " + self.finger_table[i] + "\n")
+        #self.f.write("===============================\n")
 
     def handle_successor_failure(self):
         ''' If the successor has failed/unreachable, the first alive 
@@ -349,7 +375,7 @@ class ChordServer(KeyValueStore.Iface):
         with self.lock:
             response = ChordStatus.ERROR
             for i in range(0, len(self.successor_list)):
-                # print "Trying ", self.successor_list[i]
+                print "Node %s Trying %s as successor" %(self.node_key, self.successor_list[i])
                 if self.successor_list[i] == self.node_key:
                     continue
 
@@ -373,13 +399,41 @@ class ChordServer(KeyValueStore.Iface):
             print "Exiting"
             os._exit(1)
 
+    def handle_finger_failure(self, index):
+        with self.lock:
+            alive = -1;
+            for i in range(index - 1, -1, -1):
+                with remote(self.finger_table[i]) as client:
+                    if client is None:
+                        continue
+                    alive = i
+                    break
+            # No server we know about is alive.
+            if alive < 0:
+                return self.node_key
+
+            alive_node = self.finger_table[alive]
+            for i in range(alive, index + 1):
+                self.finger_table[i] = alive_node
+
+            return alive_node
+
+
     def print_details(self):
         print "Node_Key ", self.node_key
-        print "HashCode ", self.hashcode
+        print "HashCode ", float(self.hashcode)
         print "successor ", self.successor
         print "predecessor ", self.predecessor
         print "kvstore size", len(self.kvstore)
         print "===============\n\n"
+
+    def write_details(self):
+        self.f.write( "Node_Key " +  self.node_key )
+        self.f.write( "\nHashCode " + str(self.hashcode))
+        self.f.write( "\nsuccessor " + self.successor)
+        #self.f.write( "predecessor " + self.predecessor)
+        self.f.write( "\nkvstore size" + str(len(self.kvstore)))
+        self.f.write( "\n===============\n\n")
 
     def print_successor_list(self):
         for i in range(0, len(self.successor_list)):

@@ -22,8 +22,8 @@ def get_hash(key):
     return int(md5(key).hexdigest(), 16)
 
 def is_hashcode_between(hashcode, begin, end):
-    if hashcode == begin:
-        return end
+    #if hashcode == begin:
+    #   return True
     if end < begin:
         if hashcode > end and hashcode > begin:
             return True
