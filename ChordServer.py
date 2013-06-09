@@ -343,6 +343,7 @@ class ChordServer(KeyValueStore.Iface):
                         #We have a new successor, so also send them our data to be backed up
                         replicate_thread = threading.Thread(target=replicate_all_keys)
                         replicate_thread.start()
+                        #self.replicate_all_keys()
                     # TODO check status and take action.
 
             # This is just maintenance work?
@@ -407,7 +408,9 @@ class ChordServer(KeyValueStore.Iface):
 
                     #If failed node, then tell new successor to move backup
                     if failed_node:
-                        client.move_backup(failed_node)
+                        #client.move_backup(failed_node)
+                        replicate_thread = threading2.Thread(target=client.move_backup, args=(failed_node,))
+                        replicate_thread.start()
 
                 self.successor_list = response.successor_list
                 del self.successor_list[len(self.successor_list) - 1]
