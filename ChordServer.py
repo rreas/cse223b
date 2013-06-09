@@ -175,7 +175,9 @@ class ChordServer(KeyValueStore.Iface):
                 self.kvstore[key] = value
 
                 #Send our data to our successors list
-                self.replicate_one_key(key, value)
+                replicate_thread = threading2.Thread(target=self.replicate_one_key, args=(key, value))
+                replicate_thread.run()
+                #self.replicate_one_key(key, value)
             return ChordStatus.OK  
         else:
             #Connect to master node to send kv
@@ -339,7 +341,8 @@ class ChordServer(KeyValueStore.Iface):
                         status = client.notify(self.node_key)
 
                         #We have a new successor, so also send them our data to be backed up
-                        self.replicate_all_keys()
+                        replicate_thread = threading.Thread(target=replicate_all_keys)
+                        replicate_thread.start()
                     # TODO check status and take action.
 
             # This is just maintenance work?
