@@ -121,6 +121,19 @@ class ChordServer(KeyValueStore.Iface):
                     return node, i
             return self.node_key, -1
 
+    def get_remote_successor_for_key_with_retry(self, target_node, index, hashcode):
+        while(target_node != self.node_key):
+            try:
+                with remote(target_node) as client:
+                    if client is None:
+                        target_node, index = self.handle_finger_failure(index)
+
+                    else:
+                        return client.get_successor_for_key(hashcode)
+            except:
+                pass
+        return target_node
+
     def get_successor_for_key(self, hashcode):
         ''' Given a particular hashed key, find its successor in Chord. 
         '''
@@ -130,37 +143,12 @@ class ChordServer(KeyValueStore.Iface):
 
         # If the key is located between the current node and its successor,
         # just return the successor.
-        if is_hashcode_between(hashcode_int, self.hashcode, get_hash(self.successor)):
-            return self.successor
+        with self.lock:
+            if is_hashcode_between(hashcode_int, self.hashcode, get_hash(self.successor)):
+                return self.successor
 
         target_node, index = self.get_best_guess(hashcode_int)
-        #self.f.write("\ncontacting " + target_node + " for " + str(hashcode_int) + "\n")
-        #print "Target node at %s is %s" %(self.node_key, target_node)
-        if target_node != self.node_key:
-            #print "Remote node at %s is %s" %(self.node_key, target_node)
-            with remote(target_node) as client:
-                if client is None:
-                    target_node = self.handle_finger_failure(index)
-                    #print "New remote node is ", target_node
-                    #Retry
-                    if target_node != self.node_key:
-                        with remote(target_node) as client:
-                            return client.get_successor_for_key(hashcode)
-                return client.get_successor_for_key(hashcode)
-        else:
-            "Returning self ", self.node_key
-            return self.node_key
-
-        '''# Pass the buck to the successor and let it find the master.
-        with remote(self.successor) as client:
-            if client is None:
-                self.handle_successor_failure()
-                
-                # Retry
-                with remote(self.successor) as client:
-                    return client.get_successor_for_key(hashcode)
-
-            return client.get_successor_for_key(hashcode)'''
+        return self.get_remote_successor_for_key_with_retry(target_node, index, hashcode)
 
     def get_init_data(self, node_key):
         ''' Provide the data required by a new server to be able to serve keys
@@ -207,6 +195,32 @@ class ChordServer(KeyValueStore.Iface):
         with self.lock:
             return len(self.kvstore.keys())
 
+    def kv_get(self, key):
+        response = GetValueResponse()
+        response.status = ChordStatus.OK
+        with self.lock:
+            if key in self.kvstore:
+                response.value = self.kvstore[key]
+            else:
+                response.status = ChordStatus.ERROR
+
+        return response
+
+    def get_with_retry(self, target_node, key):
+        while target_node != self.node_key:
+            try:
+                with remote(target_node) as client:
+                    if client is None:
+                        self.handle_successor_failure()
+                        target_node = self.successor
+                    else:
+                        return client.get(key)
+            except:
+                pass
+        response = GetValueResponse()
+        response.status = ChordStatus.ERROR
+        return response
+
     def get(self, key):
         #self.f.write("received get at " + self.node_key + "\n")
         #print "Node %s received GET request for %s" %(self.node_key, key)
@@ -214,23 +228,62 @@ class ChordServer(KeyValueStore.Iface):
         who the master is, it will ask its successor about it'''
         master_node = self.get_successor_for_key(str(get_hash(key)))
 
-        # TODO: return error code if key not found?
         if master_node == self.node_key:
-            response = GetValueResponse()
-            #print "GET Key %s should be local at %s" %(key, self.node_key)
-            with self.lock:
-                response.value = self.kvstore[key]
-            response.status = ChordStatus.OK
-            return response
+            return self.kv_get(key)
 
-        else:
-            with remote(master_node) as client:
+        elif master_node == self.successor:
+            #TODO : will need a retry if replication is supported.
+            with remote(self.successor) as client:
                 if client is None:
                     self.handle_successor_failure()
                     response = GetValueResponse()
                     response.status = ChordStatus.ERROR
                     return response
-                return client.get(key)
+                return client.kv_get(key)
+        else:
+            return self.get_with_retry(master_node, key)
+
+    def put_with_retry(self, target_node, key, value):
+        while(target_node != self.node_key):
+            try:
+                with remote(target_node) as client:
+                    if client is None:
+                        # In case the master was the successor, need to fix that.
+                        self.handle_successor_failure()
+                        #target_node = self.get_successor_for_key(str(get_hash(key)))
+                        target_node = self.successor
+                    else:
+                        # this is an important difference between this method and 
+                        # put_on_successor_with_retry which tries to directly add in
+                        # the successor.
+                        return client.put(key, value)
+            except:
+                # The node might fail just when we are about to put the key, value.
+                # Keep trying with the next one.
+                pass
+
+        with self.lock:
+            self.kvstore[key] = value
+
+        return ChordStatus.OK
+
+    def kv_put(self, key, value):
+        with self.lock:
+            self.kvstore[key] = value
+        #print "%s received %s" %(self.node_key, key)
+        return ChordStatus.OK
+
+    def put_on_successor_with_retry(self, key, value):
+        # TODO: Change this if we are not exiting.
+        while True:
+            try:
+                with remote(self.successor) as client:
+                    if client is None:
+                        self.handle_successor_failure()
+                    else:
+                        return client.kv_put(key, value)
+            except:
+                pass
 
     def put(self, key, value):
         #print "Node %s received put request for %s" %(self.node_key, key)
@@ -238,25 +291,17 @@ class ChordServer(KeyValueStore.Iface):
         master_node = self.get_successor_for_key(str(get_hash(key)))
 
         if master_node == self.node_key:
-            #print "Master is self ", self.node_key
-            #self.f.write("Key" + key + " put at " + self.node_key+ "\n")
-            #print "PUT Key %s should be local at %s" %(key, self.node_key)
             with self.lock:
                 self.kvstore[key] = value
 
-            return ChordStatus.OK  
-        else:
-            with remote(master_node) as client:
-                if client is None:
-                    self.handle_successor_failure()
-                    # This happens only when the immediate successor had the key and failed.
-                    # Retry after fix.
-                    return ChordStatus.ERROR
-                    '''with remote(self.successor) as client:
-                        return client.put(key, value)'''
+            return ChordStatus.OK
 
-                status = client.put(key, value)
-                return status
+        elif master_node == self.successor:
+            # User kv_put to directly add on the successor.
+            return self.put_on_successor_with_retry(key, value)
+
+        else:
+            return self.put_with_retry(master_node, key, value)
 
     def notify(self, node):
         # TODO: Probably need a check to see if it is truly the predecessor (see Chord)
@@ -313,6 +358,7 @@ class ChordServer(KeyValueStore.Iface):
                 with remote(self.successor) as client:
                     if client is None:
                         # Could not connect to successor.
+                        print 'Successor of %s failed' %(self.node_key)
                         self.handle_successor_failure()
                         self.fix_finger_table();
                         continue
@@ -401,8 +447,22 @@ class ChordServer(KeyValueStore.Iface):
 
     def handle_finger_failure(self, index):
         with self.lock:
+            # Find the highest entry in the table that is not the same as
+            # dead node. Saves the trouble of network call to the same node.
+            dead_node = self.finger_table[index]
+            i = index - 1
+            while i > -1:
+                if self.finger_table[i] == dead_node:
+                    i -= 1
+                else:
+                    break
+            if i == -1:
+                return self.node_key, -1
+
+            # Now try checking if that node is alive, otherwise check the next one
+            # and so on.
             alive = -1;
-            for i in range(index - 1, -1, -1):
+            for i in range(i, -1, -1):
                 with remote(self.finger_table[i]) as client:
                     if client is None:
                         continue
@@ -410,13 +470,14 @@ class ChordServer(KeyValueStore.Iface):
                     break
             # No server we know about is alive.
             if alive < 0:
-                return self.node_key
+                return self.node_key, -1
 
             alive_node = self.finger_table[alive]
             for i in range(alive, index + 1):
                 self.finger_table[i] = alive_node
 
-            return alive_node
+            "Returning ", alive_node
+            return alive_node, alive
 
 
     def print_details(self):
