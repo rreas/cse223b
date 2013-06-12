@@ -40,7 +40,7 @@ def spawn_server(port, chord_name=None, chord_port=None):
     p = multiprocessing.Process(target=start_server_with_name_port,
             args=(port, chord_name, chord_port))
     p.start()
-    sleep(1)
+    sleep(2)
     return p
 
 
