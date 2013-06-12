@@ -14,6 +14,7 @@ from time import sleep
 from ChordServer import *
 from KeyValue import KeyValueStore
 from KeyValue.ttypes import KeyValueStatus, ChordStatus
+import numpy as np
 
 # Thrift.
 from thrift import Thrift
@@ -36,38 +37,55 @@ def fake_data(length):
 num_data_elements = 10000
 num_servers = 10
 
-# Assign random ports.
-ports = set()
-while len(ports) < num_servers:
-    ports.add(random.randint(4000, 8000))
-
-# Create a bunch of fake data.
-all_data = set()
-while(len(all_data) < num_data_elements):
-    all_data.add(fake_data(10))
-
 # Spawn servers and store data.
 servers = {}
+trials = 3
+results = np.zeros((trials,num_servers))
 
-try:
-    print "Starting servers."
-    servers = create_servers_from_port_list(ports)
-    print "Done."
+for trial in range(trials):
+    # Set seed to reproduce.
+    random.seed(trial)
 
-    # Store all the data.
-    print "Putting data."
-    with connect(min(ports)) as client:
-        for s in all_data:
-            client.put(s,s)
-            sys.stdout.write('.')
-            sys.stdout.flush()
-    print "\nDone."
+    # Assign random ports.
+    ports = set()
+    while len(ports) < num_servers:
+        ports.add(random.randint(4000, 20000))
 
-    for port in servers.keys():
-        with connect(port) as client:
-            print "PORT", port, "has", client.get_key_count(), "keys"
+    # Create a bunch of fake data.
+    all_data = set()
+    while(len(all_data) < num_data_elements):
+        all_data.add(fake_data(10))
 
-finally:
-    for proc in servers.values():
-        proc.terminate()
+    try:
+        print "Starting servers."
+        servers = create_servers_from_port_list(ports)
+        print "Done."
+    
+        # Store all the data.
+        print "Putting data."
+        with connect(min(ports)) as client:
+            for s in all_data:
+                client.put(s,s)
+                sys.stdout.write('.')
+                sys.stdout.flush()
+        print "\nDone."
+    
+        for ix, port in enumerate(servers.keys()):
+            with connect(port) as client:
+                count = client.get_key_count()
+                print "PORT", port, "has", count, "keys"
+                results[trial, ix] = count
+    
+    finally:
+        for proc in servers.values():
+            proc.terminate()
+   
+for trial in range(trials):
+    sys.stdout.write("Trial:\t")
+
+    for result in results[trial,:]:
+        sys.stdout.write(str(result))
+        sys.stdout.write("\t")
+
+    sys.stdout.write("\n")
 
