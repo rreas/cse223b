@@ -221,6 +221,18 @@ class ChordServer(KeyValueStore.Iface):
         response.status = ChordStatus.ERROR
         return response
 
+    def get_from_successor_with_retry(self, key):
+        # TODO: Change this if we are not exiting.
+        while True:
+            try:
+                with remote(self.successor) as client:
+                    if client is None:
+                        self.handle_successor_failure()
+                    else:
+                        return client.kv_get(key)
+            except:
+                pass
+
     def get(self, key):
         #self.f.write("received get at " + self.node_key + "\n")
         #print "Node %s received GET request for %s" %(self.node_key, key)
@@ -232,14 +244,7 @@ class ChordServer(KeyValueStore.Iface):
             return self.kv_get(key)
 
         elif master_node == self.successor:
-            #TODO : will need a retry if replication is supported.
-            with remote(self.successor) as client:
-                if client is None:
-                    self.handle_successor_failure()
-                    response = GetValueResponse()
-                    response.status = ChordStatus.ERROR
-                    return response
-                return client.kv_get(key)
+            return self.get_from_successor_with_retry(key)
         else:
             return self.get_with_retry(master_node, key)
 
