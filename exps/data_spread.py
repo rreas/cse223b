@@ -39,7 +39,7 @@ num_servers = 10
 
 # Spawn servers and store data.
 servers = {}
-trials = 3
+trials = 10
 results = np.zeros((trials,num_servers))
 
 for trial in range(trials):
