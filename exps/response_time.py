@@ -39,8 +39,6 @@ all_data = set()
 while(len(all_data) < num_data_elements):
     all_data.add(fake_data(10))
  
-writes = np.zeros((len(all_data),))
-reads = np.zeros((len(all_data),))
 trials = 10
  
 for num_servers in server_range:
@@ -53,7 +51,9 @@ for num_servers in server_range:
     
     # Spawn servers and store data.
     servers = {}
-    
+    writes = np.zeros((len(all_data),))
+    reads = np.zeros((len(all_data),))
+   
     for expid in range(trials):
         print "Trial", expid
     
