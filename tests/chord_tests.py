@@ -126,6 +126,7 @@ class TestChord:
                 servers[port] = spawn_server(port,
                                              chord_name="localhost",
                                              chord_port=ports[0])
+            sleep(2)
 
         for port in ports:
             with connect(port) as client:
@@ -133,8 +134,10 @@ class TestChord:
                 
         try:
             with connect(ports[0]) as client:
-                client.put('connie', 'lol')
-                client.put('rakesh', 'lol++')
+                status = client.put('connie', 'lol')
+                assert status == ChordStatus.OK
+                status = client.put('rakesh', 'lol++')
+                assert status == ChordStatus.OK
                 key = client.get_successor_for_key(str(get_hash('connie')))
                 port = int(key.split(":")[1])
                 resp = client.get('connie')
@@ -142,10 +145,11 @@ class TestChord:
 
             servers[port].terminate()
             del servers[port]
-
+            ports.remove(port)
             # New keys still get propagated around.
             with connect(ports[0]) as client:
-                client.put('russell', 'organic')
+                assert client.put('russell', 'organic') == ChordStatus.OK
+
 
             with connect(ports[1]) as client:
                 resp = client.get('russell')
@@ -170,6 +174,7 @@ class TestChord:
                              chord_name="localhost",
                              chord_port=ports[0])
 
+            sleep(2)
             with connect(ports[0]) as client:
                 succ = client.get_successor_for_key(str(get_hash("27")))
                 assert succ == "localhost:" + str(ports[1])
@@ -179,4 +184,50 @@ class TestChord:
         finally:
             a.terminate()
             b.terminate()
+
+    def test_replication(self):
+        ports = range(3342, 3347)
+        servers = {}
+
+        for port in ports:
+            if port == ports[0]:
+                servers[port] = spawn_server(port)
+            else:
+                servers[port] = spawn_server(port,
+                                             chord_name="localhost",
+                                             chord_port=ports[0])
+            sleep(2)
+
+        for port in ports:
+            with connect(port) as client:
+                client.print_details()
+                
+        try:
+            with connect(ports[0]) as client:
+                status = client.put('connie', 'lol')
+                assert status == ChordStatus.OK
+                status = client.put('rakesh', 'lol++')
+                assert status == ChordStatus.OK
+                key = client.get_successor_for_key(str(get_hash('connie')))
+                port = int(key.split(":")[1])
+                resp = client.get('connie')
+                assert resp.value == 'lol'
+
+            servers[port].terminate()
+            del servers[port]
+            ports.remove(port)
+            # New keys still get propagated around.
+            with connect(ports[0]) as client:
+                assert client.get('connie').value == 'lol'
+                assert client.put('russell', 'organic') == ChordStatus.OK
+
+
+            with connect(ports[1]) as client:
+                resp = client.get('russell')
+                assert resp.value == 'organic'
+
+        finally:
+            for port, name in servers.items():
+                name.terminate()
+
 
