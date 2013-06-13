@@ -35,7 +35,7 @@ all_data = set()
 while(len(all_data) < 1000):
     all_data.add(fake_data(10))
 
-ports = set(range(3000, 3002))
+ports = set(range(3000, 3005))
 plock = threading.Lock() # Just to avoid crashing while getting data.
 crash_prob = 0.05
 should_quit = False
@@ -62,6 +62,7 @@ try:
     print "Starting servers."
     servers = create_servers_in_range(min(ports), max(ports)+1)
     print "Done."
+    sleep(5)
 
     # Store all the data.
     print "Putting data."
