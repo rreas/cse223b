@@ -46,5 +46,5 @@ def remote(node):
         yield client
         transport.close()
     except Thrift.TException, tx:
-        print "Caught exception:", tx.message, node_decoded[0], node_decoded[1]
+        #print "Caught exception:", tx.message, node_decoded[0], node_decoded[1]
         yield None
