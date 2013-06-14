@@ -29,8 +29,8 @@ myip = sys.argv[1]
 otherip = None
 otherport = None
 if len(sys.argv) > 1:
-    otherip = sys.argv[1]
-    otherport = int(sys.argv[2])
+    otherip = sys.argv[2]
+    otherport = int(sys.argv[3])
 
 # Start server and add to ring if needed.
 handler = ChordServer(myip, myport, otherip, otherport)
