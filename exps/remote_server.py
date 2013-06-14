@@ -24,6 +24,7 @@ from TestHelpers import *
 
 num_data_elements = 1000
 myport = random.randint(20000, 40000)
+myip = sys.argv[1]
 
 otherip = None
 otherport = None
@@ -32,12 +33,12 @@ if len(sys.argv) > 1:
     otherport = int(sys.argv[2])
 
 # Start server and add to ring if needed.
-handler = ChordServer('localhost', myport, otherip, otherport)
+handler = ChordServer(myip, myport, otherip, otherport)
 processor = KeyValueStore.Processor(handler)
-transport = TSocket.TServerSocket('localhost', myport)
+transport = TSocket.TServerSocket(myip, myport)
 tfactory = TTransport.TBufferedTransportFactory()
 pfactory = TBinaryProtocol.TBinaryProtocolFactory()
 server = TServer.TThreadedServer(processor, transport, tfactory, pfactory)
-print "starting server on port", myport, "..."
+print "starting server on ip, port", myip, myport, "..."
 server.serve()
 
