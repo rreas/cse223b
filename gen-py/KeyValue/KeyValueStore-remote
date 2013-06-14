@@ -24,12 +24,14 @@ if len(sys.argv) <= 1 or sys.argv[1] == '--help':
   print ''
   print 'Functions:'
   print '  GetValueResponse get(string key)'
+  print '  GetValueResponse kv_get(string key)'
   print '  string get_predecessor()'
   print '  string get_successor()'
   print '  string get_successor_for_key(string key)'
   print '  SuccessorListResponse get_successor_list()'
   print '  DataResponse get_init_data(string hash)'
   print '  ChordStatus put(string key, string value)'
+  print '  ChordStatus kv_put(string key, string value)'
   print '  ChordStatus notify(string node)'
   print '  ChordStatus notify_predecessor(string node)'
   print '  ChordStatus move_backup(string node)'
@@ -39,6 +41,8 @@ if len(sys.argv) <= 1 or sys.argv[1] == '--help':
   print '  ChordStatus replicate(string key, string value, string source)'
   print '  ReplicasListResponse get_replicate_list()'
   print '  i64 get_key_count()'
+  print '  ChordStatus replicate_put(string key, string value)'
+  print '  ChordStatus kv_put_keys( input_dict)'
   print ''
   sys.exit(0)
 
@@ -96,6 +100,12 @@ if cmd == 'get':
     sys.exit(1)
   pp.pprint(client.get(args[0],))
 
+elif cmd == 'kv_get':
+  if len(args) != 1:
+    print 'kv_get requires 1 args'
+    sys.exit(1)
+  pp.pprint(client.kv_get(args[0],))
+
 elif cmd == 'get_predecessor':
   if len(args) != 0:
     print 'get_predecessor requires 0 args'
@@ -131,6 +141,12 @@ elif cmd == 'put':
     print 'put requires 2 args'
     sys.exit(1)
   pp.pprint(client.put(args[0],args[1],))
+
+elif cmd == 'kv_put':
+  if len(args) != 2:
+    print 'kv_put requires 2 args'
+    sys.exit(1)
+  pp.pprint(client.kv_put(args[0],args[1],))
 
 elif cmd == 'notify':
   if len(args) != 1:
@@ -185,6 +201,18 @@ elif cmd == 'get_key_count':
     print 'get_key_count requires 0 args'
     sys.exit(1)
   pp.pprint(client.get_key_count())
+
+elif cmd == 'replicate_put':
+  if len(args) != 2:
+    print 'replicate_put requires 2 args'
+    sys.exit(1)
+  pp.pprint(client.replicate_put(args[0],args[1],))
+
+elif cmd == 'kv_put_keys':
+  if len(args) != 1:
+    print 'kv_put_keys requires 1 args'
+    sys.exit(1)
+  pp.pprint(client.kv_put_keys(eval(args[0]),))
 
 else:
   print 'Unrecognized method %s' % cmd

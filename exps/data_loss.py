@@ -7,10 +7,11 @@ import threading
 
 import multiprocessing
 from nose.tools import *
-from time import sleep
+from time import sleep, time
 from ChordServer import *
 from KeyValue import KeyValueStore
 from KeyValue.ttypes import KeyValueStatus, ChordStatus
+import numpy as np
 
 # Thrift.
 from thrift import Thrift
@@ -32,19 +33,19 @@ def fake_data(length):
 
 # Create a bunch of fake data.
 all_data = set()
-while(len(all_data) < 1000):
+while(len(all_data) < 2000):
     all_data.add(fake_data(10))
 
-ports = set(range(3000, 3005))
+ports = set(range(3000, 3008))
 plock = threading.Lock() # Just to avoid crashing while getting data.
-crash_prob = 0.05
+crash_prob = 0.1
 should_quit = False
 
 def crash_with_prob():
     while(True):
         if should_quit:
             return
-        if len(ports) == 1: # Don't crash the last server.
+        if len(ports) == 2: # Don't crash the last server.
             return
 
         sleep(0.1)
@@ -64,6 +65,8 @@ try:
     print "Done."
     sleep(5)
 
+    results = np.zeros((len(all_data),))
+
     # Store all the data.
     print "Putting data."
     with connect(min(ports)) as client:
@@ -81,10 +84,14 @@ try:
     expected = len(all_data)
     count = 0
 
-    for s in all_data:
+    for i, s in enumerate(all_data):
         with plock:
             with connect(min(ports)) as client:
-                if client.get(s).value == s:
+                st = time()
+                resp = client.get(s)
+                fn = time()
+                results[i] = fn-st
+                if resp.value == s:
                     count = count + 1
         sys.stdout.write('.')
         sys.stdout.flush()
@@ -92,6 +99,9 @@ try:
     print "\nExpected vs. count:", expected, count
     should_quit = True
     sleep(1) # Just give thread time to exit.
+
+    for val in results:
+        print val
 
 finally:
     for proc in servers.values():
