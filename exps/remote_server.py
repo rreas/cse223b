@@ -7,7 +7,6 @@ import threading
 import multiprocessing
 
 from time import sleep, time
-import numpy as np
 from ChordServer import *
 from KeyValue import KeyValueStore
 from KeyValue.ttypes import KeyValueStatus, ChordStatus
