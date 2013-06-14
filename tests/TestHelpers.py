@@ -16,9 +16,9 @@ from contextlib import contextmanager
 from helpers import encode_node
 
 @contextmanager
-def connect(port):
+def connect(port, ip='localhost'):
     transport = TTransport.TBufferedTransport(
-            TSocket.TSocket('localhost', port))
+            TSocket.TSocket(ip, port))
     protocol = TBinaryProtocol.TBinaryProtocol(transport)
     client = KeyValueStore.Client(protocol)
     transport.open()
