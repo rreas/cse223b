@@ -37,14 +37,14 @@ while(len(all_data) < 1000):
 
 ports = set(range(3000, 3008))
 plock = threading.Lock() # Just to avoid crashing while getting data.
-crash_prob = 0.05
+crash_prob = 0.01
 should_quit = False
 
 def crash_with_prob():
     while(True):
         if should_quit:
             return
-        if len(ports) == 1: # Don't crash the last server.
+        if len(ports) == 2: # Don't crash the last server.
             return
 
         sleep(0.1)
