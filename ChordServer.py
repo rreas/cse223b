@@ -248,6 +248,26 @@ class ChordServer(KeyValueStore.Iface):
         else:
             return self.get_with_retry(master_node, key)
 
+    def replicate_put(self, key, value):
+        #print "came into %s for replication" %(self.node_key)
+        with self.lock:
+            self.kvstore[key] = value
+        #print "%s received %s as replication" %(self.node_key, key)
+        return ChordStatus.OK
+
+    def kv_put(self, key, value):
+        with self.lock:
+            self.kvstore[key] = value
+
+        self.replicate_key(key, value)
+        #print "%s received %s" %(self.node_key, key)
+        return ChordStatus.OK
+
+    def kv_put_keys(self, input_dict):
+        with self.lock:
+            self.kvstore.update(input_dict)
+        return ChordStatus.OK
+
     def put_with_retry(self, target_node, key, value):
         while(target_node != self.node_key):
             try:
@@ -270,25 +290,6 @@ class ChordServer(KeyValueStore.Iface):
         with self.lock:
             self.kvstore[key] = value
 
-        return ChordStatus.OK
-
-    def replicate_put(self, key, value):
-        with self.lock:
-            self.kvstore[key] = value
-        #print "%s received %s" %(self.node_key, key)
-        return ChordStatus.OK
-
-    def kv_put(self, key, value):
-        with self.lock:
-            self.kvstore[key] = value
-
-        self.replicate_key(key, value)
-        #print "%s received %s" %(self.node_key, key)
-        return ChordStatus.OK
-
-    def kv_put_keys(self, input_dict):
-        with self.lock:
-            self.kvstore.update(input_dict)
         return ChordStatus.OK
 
     def put_on_successor_with_retry(self, key, value):
@@ -325,6 +326,7 @@ class ChordServer(KeyValueStore.Iface):
                     continue
                 try:
                     with remote(i) as client:
+                        #print "sending single key to", i
                         client.replicate_put(key, value)
                 except:
                     # Need not worry much. This will be replicated to the new server in stabilize.
@@ -524,11 +526,11 @@ class ChordServer(KeyValueStore.Iface):
             return alive_node, alive
 
     def manage_replication(self, old_list):
-        print "Managing replictation"
+        #print "Managing replictation"
         for i in self.successor_list:
             if i in old_list or i == self.node_key:
                 continue
-            print 'Send keys to ', i
+            #print 'Send keys to ', i
             self.replicate_all_keys(i)
 
     def print_details(self):
