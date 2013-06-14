@@ -127,7 +127,7 @@ Rakesh Varna
 
 \maketitle
 \begin{abstract}
-In this report, we implement and evaluate the performance of a Distributed Hash Table (DHT) based on Chord \cite{chord}. We experiment with different replication strategies.
+In this report, we implement and evaluate the performance of a Distributed Hash Table (DHT) based on Chord \cite{chord}. We experiment with synchronous and asynchronous replication strategies based on sharing data with one or more successors.  All code is available on GitHub \cite{github} and written in Python using the Thrift RPC \cite{thrift} framework.
 \end{abstract}
 
 % A category with the (minimum) three required fields
@@ -135,30 +135,32 @@ In this report, we implement and evaluate the performance of a Distributed Hash 
 %A category including the fourth, optional field follows...
 %\category{D.2.8}{Software Engineering}{Metrics}[complexity measures, performance measures]
 
-\terms{Reliability, Experimentation}
+\terms{Reliability, Experimentation, Distribution}
 
-\keywords{Distributed Hash Tables, Distributed Key-Value Stores} % NOT required for Proceedings
+\keywords{Distributed Hash Tables, Distributed Key-Value Stores, Consistent Hashing, Chord, Replication, Thrift RPC, Asynchronous Replication} % NOT required for Proceedings
 
 \section{Introduction}
-Distributed Hash Tables (DHTs) serve as decentralized key-value stores that scale well and are fault-tolerant. Each participating node is responsible for storing a set of keys and their corresponding values. DHTs are known for their fast (logarithmic) key lookups \cite{chord}. 
+Distributed Hash Tables (DHTs) serve as decentralized key-value stores that can scale well and are fault-tolerant. Each participating node is responsible for storing a set of keys and their corresponding values. DHTs are known for their fast, $O(\log N)$ key lookups \cite{chord}.
 
-The remainder of the report is structured as follows: Section 2 briefly describes Chord, a peer to peer lookup protocol that our implementation is based on. Section 3 describes the different lookup and replication strategies that we have implemented. We discuss the design of our experiments in Section 4. In Section 5, we analyse and discuss the results of our experiments. We conclude in section 6.
+The remainder of the report is structured as follows: Section 2 briefly describes Chord, a peer to peer lookup protocol that our implementation is based on. Section 3 describes the different lookup and replication strategies that we have implemented. We discuss the design of our experiments in Section 4. In Section 5, we analyze and discuss the results of our experiments. We conclude in section 6.
 
 \section{Chord} 
 Chord is a peer-to-peer lookup protocol that maps a given key onto a node. It uses consistent hashing \cite{consistent-hashing} to assign keys to the nodes \cite{chord}. Consistent hashing tends to balance load with each node receiving approximately the same fraction of keys. In order to scale to large number of nodes, a given node should store minimal amount of information about the other nodes in the system. In an N-node system using Chord, any given node maintains information about only $O(\log n)$ other nodes and the lookup involves only $O(\log N)$ messages. Note that this is only for faster lookups. For correctness, it is sufficient to maintain a pointer to the next node along the circle.
-As nodes join and leave the system, the `routing' information stored at any given might become stale temporarily. This results in degraded performance, yet does not affect correctness. Chord only requires that a given node maintain the correct information about its successor, the next node on the circle (clock-wise), considering the nodes being arranged in a circle, as per consistent hashing. Replication and storing values associated with the keys is handled in the higher level application.
+As nodes join and leave the system, the `routing' information stored at any given might become stale. This results in degraded performance, yet does not affect correctness. Chord only requires that a given node maintain the correct information about its successor, the next node on the circle (clock-wise), considering the nodes being arranged in a circle, as per consistent hashing. Replication and storing values associated with the keys is handled in the higher level application.
 \subsection{Efficient lookups}
-The nodes in Chord maintain a `finger-table', with $i^{th}$ entry in the table pointing to the successor of the key $(n + 2^{i - 1}) \mod 2^m, \; 1 \leq i \leq m$, where $m$ is the number of bits in the output of the hash function used. Given that node is likely to be within a distance of $2^m/N^2$ of any other node\footnote{The reader is referred to \cite{chord} for the theorem and correponding proof.}, it is sufficient to maintain just $O (\log N)$ entries. Otherwise, a node can maintain $m$ entries. Given a key, a node searches along its finger table to find the farthest node that lies before the key. With each such lookup, the distance is guaranteed to reduce by half, assuming the entries are stable and correct. When the finger tables are incorrect, in the worst case, the performance degrades to O(n) such lookups.
+The nodes in Chord maintain a `finger-table', with the $i^{th}$ entry in the table pointing to the successor of the key $(n + 2^{i - 1}) \mod 2^m, \; 1 \leq i \leq m$, where $m$ is the number of bits in the output of the hash function used. Given that node is likely to be within a distance of $2^m/N^2$ of any other node\footnote{The reader is referred to \cite{chord} for the theorem and correponding proof.}, it is sufficient to maintain just $O (\log N)$ entries. Otherwise, a node can maintain $m$ entries. Given a key, a node searches along its finger table to find the farthest node that lies before the key. With each such lookup, the distance is guaranteed to reduce by half, assuming the entries are stable and correct. When the finger tables are incorrect, in the worst case, the performance degrades to O(n) such lookups.
 \subsection{Ensuring correctness}
-Node joins can render successor pointers and finger table entries temporarily incorrect. Periodically, Chord runs \textit{stabilize} method, that allows a node to learn about newly joined nodes and if the node has a new successor. Similarly, \textit{fix\_finger} method corrects the entries in the finger table by checking the new successor (if any) for the corresponding key. Node failures are much harder to handle and the successor pointer cannot be corrected without any information about the nodes beyond the failed successor. To increase the robustness against failures, Chord maintains a \textit{successor list} whose length can be tuned to meet fault tolerant requirements. If the length of the list is $r$, assuming that the nodes fail independently with probability $p$, the probability that all nodes in the successor fail simultaneously is $p^r$ which can be made as small as required by increasing the value of $r$.
+Node joins can render successor pointers and finger table entries temporarily incorrect. Periodically, Chord runs a \textit{stabilize} method, that allows a node to learn about newly joined nodes and if the node has a new successor. Similarly, a \textit{fix\_finger} method corrects the entries in the finger table by checking the new successor (if any) for the corresponding key. Node failures are much harder to handle and the successor pointer cannot be corrected without any information about the nodes beyond the failed successor. To increase the robustness against failures, Chord maintains a \textit{successor list} whose length can be tuned to meet fault tolerant requirements. If the length of the list is $r$, assuming that the nodes fail independently with probability $p$, the probability that all nodes in the successor fail simultaneously is $p^r$ which can be made as small as required by increasing the value of $r$.
 
 \section{Design}
-Our implementation closely follows the Chord protocol with a few differences. 
+Our implementation closely follows the Chord protocol with a few differences including the addition of replication to successors.
 
 \subsection{Replication strategy}
 In our implementation, we follow the replication strategy detailed in \cite{dynamo} by replicating the key and the corresponding values at a given node in each of the successors in the successor list. When a successor fails and we obtain a new successor (at the end of the list), the keys are replicated to the new $n^{th}$ successor.
 
-We implement and experiment with synchronous and asynchronous replication. In synchronous replication, when the key is put into a node, it is replicated to the successors before returning back to the client. In asynchronous replication, we store the pending replications and copy them to the successors in a separate thread. These implementations represent a trade off between latency and strong consistency. In the former, adding a key to the DHT might take longer, but once a key and its value have been inserted, they can always be retrieved in the presence of failures independent of when the failures happen. With asynchronous replication, if the node containing the key-value pair fails before separate thread copies them to the successors, the key and the corresponding value are effectively lost.
+We implement and experiment with both synchronous and asynchronous replication. In synchronous replication, when the key is put into a node, it is replicated to the successors before returning back to the client. In asynchronous replication, we store the pending replications in a queue and copy them to the successors in a separate thread. 
+
+These implementations represent a trade off between latency and strong consistency. In the former, adding a key to the DHT might take longer, but once a key and its value have been inserted, they can always be retrieved in the presence of failures independent of when the failures happen. With asynchronous replication, if the node containing the key-value pair fails before the replication thread copies the pair to any successors the pair is effectively lost.
 
 \subsection{Forced stabilization}
 In Chord, node failures might result in an incorrect successor pointer and therefore, the key lookup might fail temporarily. The client is required to retry after a pause, within which, the \textit{stabilize} method is expected to run and fix the pointer. In our implementation, whenever a node realizes that its immediate successor has failed, it fixes the successor pointer using the successor list. The method for this forced stabilization is described in Algorithm \ref{alg:handle-succ-failure}.
@@ -183,7 +185,7 @@ In Chord, node failures might result in an incorrect successor pointer and there
 \end{algorithmic}
 \end{algorithm}
 
-It is possible that node maps a key to another node using the finger table and the latter has failed. In this case, the node proceeds with the next best guess from the finger table. At some point, we will reach the predecessor of the failed node which forces the stabilization and continues with the lookup. In the next round of fix-finger-table, all the pointers will be corrected. As a result of these choices, a client will get the value for a given key if it exists within any one of the nodes without requiring a retry. The latency might be slightly higher for that particular query.
+It is possible that a node maps a key to another node using the finger table and the latter has failed. In this case, the node proceeds with the next best guess from the finger table. At some point, we will reach the predecessor of the failed node which forces the stabilization and continues with the lookup. In the next round of fix-finger-table, all the pointers will be corrected. As a result of these choices, a client will get the value for a given key if it exists within any one of the nodes without requiring a retry. The latency might be slightly higher for that particular query.
 
 \section{Implementation}
 We have implemented multiple variants of Chord to experiment with and analyse their performance. The key value store is implemented in Python. We use Apache Thrift \cite{thrift} for making RPCs between the nodes. We use MD5 hashing to convert the given key into a 128 bit identifier on the circle. The identifier for a node in Chornamo is the MD5 hash of hostname and port number of the node in the form ``hostname:port\_number". 
@@ -223,8 +225,14 @@ In this experiment, we analyze the effect of concurrent lookups on latency. We r
 
 \subsection{Node failures}
 
+\section{Limitations}
+Python threads...  bl
+
 \section{Conclusion and future work}
 We have implemented a scalable and fault tolerant distributed hash table based on Chord \cite{chord}. We experimented with different replication and lookup strategies and compared their performance. 
+
+Beehive, Dynamo??
+
 %\end{document}  % This is where a 'short' article might terminate
 
 
