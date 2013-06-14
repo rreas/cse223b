@@ -54,7 +54,7 @@ while True:
     with connect(serverport, serverip) as client:
         for ix, s in enumerate(all_data):
             st = time()
-            resp = client.get(s)
+            resp = client.put(s,s)
             fn = time()
             reads[ix] = fn-st
         print "done."
