@@ -101,10 +101,9 @@ class ChordServer(KeyValueStore.Iface):
 
     def replicate_pending_keys(self):
         while True:
-            if self.log.empty() == False:
-                key, value = self.log.get()
-                self.replicate_key(key, value)
-            sleep(2)
+            key, value = self.log.get(True)
+            self.replicate_key(key, value)
+            self.log.task_done()
 
     def initialize_successor_list(self):
         ''' If there are no other nodes in Chord, initialize the 
@@ -273,7 +272,7 @@ class ChordServer(KeyValueStore.Iface):
 
         #self.replicate_key(key, value)
         #with self.log_lock:
-        self.log.put((key, value))
+        self.log.put_nowait((key, value))
         # print "%s received %s" %(self.node_key, key)
         return ChordStatus.OK
 
@@ -334,17 +333,16 @@ class ChordServer(KeyValueStore.Iface):
             return self.put_with_retry(master_node, key, value)
     
     def replicate_key(self, key, value):
-        with self.lock:
-            for i in self.successor_list:
-                if i == self.node_key:
-                    continue
-                try:
-                    with remote(i) as client:
-                        #print "sending single key to", i
-                        client.replicate_put(key, value)
-                except:
-                    # Need not worry much. This will be replicated to the new server in stabilize.
-                    pass
+        for i in self.successor_list:
+            if i == self.node_key:
+                continue
+            try:
+                with remote(i) as client:
+                    #print "sending single key to", i
+                    client.replicate_put(key, value)
+            except:
+                # Need not worry much. This will be replicated to the new server in stabilize.
+                pass
 
     def replicate_all_keys(self, target_node):
         try:
