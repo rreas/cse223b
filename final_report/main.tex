@@ -158,7 +158,7 @@ Our implementation closely follows the Chord protocol with a few differences.
 \subsection{Replication strategy}
 In our implementation, we follow the replication strategy detailed in \cite{dynamo} by replicating the key and the corresponding values at a given node in each of the successors in the successor list. When a successor fails and we obtain a new successor (at the end of the list), the keys are replicated to the new $n^{th}$ successor.
 
-We implement and experiment with synchronous and asynchronous replication. In synchronous replication, when the key is put into a node, it is replicated to the successors before returning back to the client. In asynchronous replication, we store the pending replications and copy them to the successors in a separate thread. These implementations represent a trade off between latency and strong consistency. In the former, adding a key to the DHT might take longer, but once a key and its value have been inserted, they can always be retrieved in the presence of failures independent of when the failures happen. When asynchronous replication, if the node containing the key-value pair before separate thread copies them to the successors, the key and the corresponding value are effectively lost.
+We implement and experiment with synchronous and asynchronous replication. In synchronous replication, when the key is put into a node, it is replicated to the successors before returning back to the client. In asynchronous replication, we store the pending replications and copy them to the successors in a separate thread. These implementations represent a trade off between latency and strong consistency. In the former, adding a key to the DHT might take longer, but once a key and its value have been inserted, they can always be retrieved in the presence of failures independent of when the failures happen. With asynchronous replication, if the node containing the key-value pair fails before separate thread copies them to the successors, the key and the corresponding value are effectively lost.
 
 \subsection{Forced stabilization}
 In Chord, node failures might result in an incorrect successor pointer and therefore, the key lookup might fail temporarily. The client is required to retry after a pause, within which, the \textit{stabilize} method is expected to run and fix the pointer. In our implementation, whenever a node realizes that its immediate successor has failed, it fixes the successor pointer using the successor list. The method for this forced stabilization is described in Algorithm \ref{alg:handle-succ-failure}.
@@ -198,7 +198,7 @@ We extend the basic version of Chord by adding finger tables for faster lookups.
 In this implementation, we replicate the keys synchronously, as and when they are added into the successors in the successor list. We maintain a maximum of 5 successors.
 
 \paragraph{Asynchronous replication}
-In this implementation, a separate handles the responsibility of copying the added keys onto the successors.
+In this implementation, a separate thread handles the responsibility of copying the added keys onto the successors.
 
 \section{Experiments}
 \subsection{Key distribution}
