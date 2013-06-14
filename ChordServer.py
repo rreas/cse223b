@@ -2,7 +2,7 @@ import sys,os
 sys.path.append('./gen-py')
 from time import sleep
 from math import pow
-from collections import defaultdict as defaultdick
+from Queue import Queue
 
 # Thrift imports
 from thrift.transport import TSocket
@@ -10,7 +10,7 @@ from thrift.transport import TTransport
 from thrift.protocol import TBinaryProtocol
 from thrift.server import TServer
 
-import threading2
+import threading
 
 from KeyValue import KeyValueStore
 from KeyValue.ttypes import *
@@ -32,13 +32,14 @@ class ChordServer(KeyValueStore.Iface):
         self.port = port
         self.node_key = encode_node(self.hostname, self.port)
         self.kvstore = {}
-        self.replicas = defaultdick(dict)
         self.successor = self.node_key
         self.predecessor = None
         self.successor_list = []
         self.finger_table = []
+        self.log = Queue()
         self.hashcode = get_hash(self.node_key)
-        self.lock = threading2.Lock()
+        self.lock = threading.Lock()
+        self.log_lock = threading.Lock()
         self.f = open(str(port), 'w')
         
         # Property can be changed by external code.
@@ -90,9 +91,20 @@ class ChordServer(KeyValueStore.Iface):
             status = client.notify(self.node_key)
 
     def initialize_threads(self):
-        stabilizer = threading2.Thread(target=self.stabilize)
+        stabilizer = threading.Thread(target = self.stabilize)
         stabilizer.daemon = True
         stabilizer.start()
+
+        async = threading.Thread(target = self.replicate_pending_keys)
+        async.daemon = True
+        async.start()
+
+    def replicate_pending_keys(self):
+        while True:
+            if self.log.empty() == False:
+                key, value = self.log.get()
+                self.replicate_key(key, value)
+            sleep(2)
 
     def initialize_successor_list(self):
         ''' If there are no other nodes in Chord, initialize the 
@@ -259,8 +271,10 @@ class ChordServer(KeyValueStore.Iface):
         with self.lock:
             self.kvstore[key] = value
 
-        self.replicate_key(key, value)
-        #print "%s received %s" %(self.node_key, key)
+        #self.replicate_key(key, value)
+        #with self.log_lock:
+        self.log.put((key, value))
+        # print "%s received %s" %(self.node_key, key)
         return ChordStatus.OK
 
     def kv_put_keys(self, input_dict):
