@@ -188,28 +188,42 @@ In Chord, node failures might result in an incorrect successor pointer and there
 It is possible that a node maps a key to another node using the finger table and the latter has failed. In this case, the node proceeds with the next best guess from the finger table. At some point, we will reach the predecessor of the failed node which forces the stabilization and continues with the lookup. In the next round of fix-finger-table, all the pointers will be corrected. As a result of these choices, a client will get the value for a given key if it exists within any one of the nodes without requiring a retry. The latency might be slightly higher for that particular query.
 
 \section{Implementation}
-We have implemented multiple variants of Chord to experiment with and analyse their performance. The key value store is implemented in Python. We use Apache Thrift \cite{thrift} for making RPCs between the nodes. We use MD5 hashing to convert the given key into a 128 bit identifier on the circle. The identifier for a node in Chornamo is the MD5 hash of hostname and port number of the node in the form ``hostname:port\_number". 
-Each of the variants is described below.
-\paragraph{Basic Chord}
-This version just maintains the successor pointer for lookups and successor list for robustness. This results in an $O(n)$ lookup complexity for mapping a key to a node. Other variants of Chord are built over this basic version. The stabilize method is handled by a separate thread which runs every 2 seconds.
+We have implemented multiple variants of Chord to experiment with and analyze their performance. The key value store is implemented in Python. We use Apache Thrift \cite{thrift} for making RPCs between the nodes. We use MD5 hashing to convert the given key into a 128 bit identifier on the circle. The identifier for a node in Chornamo is the MD5 hash of hostname and port number of the node in the form ``hostname:port\_number".  Each of the variants is described below.
+\paragraph{Chord with slow lookup}
+This version maintains only the successor pointer for lookups and a successor list for robustness. This results in an $O(n)$ lookup complexity for mapping a key to a node. Other variants of Chord are built over this basic version. The stabilize method is handled by a separate thread which runs every 2 seconds.
 
 \paragraph{Chord with finger tables}
-We extend the basic version of Chord by adding finger tables for faster lookups. In our implementation we have 128 entries in the finger table (equal to number of bits in our hashing function), with $i^{th}$ entry representing the successor of $(n + 2^{i - 1}) \mod 2^{128},\; 1 \leq i \leq 128$. The \textit{fix\_finger\_table} and \textit{stabilize} methods are run by the same thread (every 2 seconds).
+We extend the basic version of Chord by adding finger tables for faster lookups. In our implementation we have 128 entries in the finger table (equal to number of bits in our hashing function), with the $i^{th}$ entry representing the successor of $(n + 2^{i - 1}) \mod 2^{128},\; 1 \leq i \leq 128$. The \textit{fix\_finger\_table} and \textit{stabilize} methods are run by the same thread (every 2 seconds).
 
 \paragraph{Synchronous replication}
-In this implementation, we replicate the keys synchronously, as and when they are added into the successors in the successor list. We maintain a maximum of 5 successors.
+In this implementation, we replicate the keys synchronously to each successor in the current node's successor list. We maintain a maximum of 5 successors for experiments.  Of course, this value can be adjusted by the user.  Each additional stop for replication adds some overhead.
+
+If a node tries to replicate to another node that has crashed the receiving node will simply be skipped.  Assuming that a node is crashed, and we will later add a new successor, the necessary steps for replication will happen at that time as described in Algorithm \ref{alg:handle-succ-failure}.
 
 \paragraph{Asynchronous replication}
-In this implementation, a separate thread handles the responsibility of copying the added keys onto the successors.
+In this implementation, a separate thread handles the responsibility of copying the added keys onto the successors.  Otherwise, replication is handled similarly to the synchronous method.  This includes the handling of a successor failure. 
 
-\section{Experiments}
+\section{Experiments and results}
 \subsection{Key distribution}
-In this experiment, we check how well the keys are distributed among the nodes. Ideally, consistent hashing would divide the keys equally, but in practice the load varies across the nodes. We run the experiment with XX nodes (all hosted on the same server) and add YY keys and values. The results are presented in Figure \ref{}. The distribution of keys is uneven, with the maximum of XX keys being stored at a single node and minimum of YY keys. This is probably due to the uneven spacing of node identifiers along the circle.
+In this experiment, we check how well the keys are distributed among the nodes. Ideally, consistent hashing would divide the keys equally, but in practice the load varies across the nodes. We run the experiment for 10 trials with 10 nodes and add 10,000 keys and values. The results are presented in Figure \ref{fig:keydist}. Clearly, the distribution of keys is uneven, with the maximum of 4,267 keys being stored at a single node compared to a minimum of 14 keys. This is due to the uneven spacing of node identifiers along the circle.  As introduced in \ref{} one option is to use virtual nodes within each node.  We did not explore this idea.
+
+
+\begin{figure}[hb]
+  \centering
+\begin{tabular}{ c | c | c | c }
+  Min-Mean & Min-Std. & Max-Mean & Max-Std. \\
+  \hline
+  89.9 ms & 62.6 ms & 3006.3 ms & 643.9 ms \\
+\end{tabular}
+  \caption{Key-Value distribution of 10,000 keys across 10 servers.  Results are over 10 trials.}
+  \label{fig:keydist}
+\end{figure}
+
 
 \subsection{Latency}
-In these experiments, we analyse the effect of replication and concurrent queries and to the DHT and usage of finger tables on the latency. We discuss each of them below.
+In these experiments, we analyze the effect of replication and concurrent queries and to the DHT and usage of finger tables on the latency. We discuss each of them below.
 \subsubsection{Basic Chord vs. Chord with finger tables}
-Basic Chord has an $O(N)$ lookup complexiy while the implementation with finger tables is theoretically logarithmic. We aim to find how well each of them performs in practice. We run a succession of trials (on localhost), with the number of servers increasing in each successive trial, to see how that impacts latency. In each case, we add XX number of keys and values. The results are displayed in Figure \ref{}. It is clear that finger tables definitely help improve the lookup latency. In fact, the timing match the theoretical expectations.
+Basic Chord has an $O(N)$ lookup complexity while the implementation with finger tables is theoretically logarithmic. We aim to find how well each of them performs in practice. We run a succession of trials (on localhost), with the number of servers increasing in each successive trial, to see how that impacts latency. In each case, we add XX number of keys and values. The results are displayed in Figure \ref{}. It is clear that finger tables definitely help improve the lookup latency. In fact, the timing match the theoretical expectations.
 
 \paragraph{Over the network}
 We run the same set of experiments, but now over the network. Each node is now hosted on a separate server (when the number of nodes exceeds the number of servers at our disposal, we run with a maximum of two nodes at each server). Figure \ref{} presents the results. As expected, the network does not have any other effect on the results presented above, other than adding latency to each of them.
@@ -226,7 +240,7 @@ In this experiment, we analyze the effect of concurrent lookups on latency. We r
 \subsection{Node failures}
 
 \section{Limitations}
-Python threads...  bl
+Python threads...  blah
 
 \section{Conclusion and future work}
 We have implemented a scalable and fault tolerant distributed hash table based on Chord \cite{chord}. We experimented with different replication and lookup strategies and compared their performance. 
