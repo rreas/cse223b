@@ -56,7 +56,7 @@ def run_client(l, p, d, i):
         reads = np.zeros((len(d),))
         pick = random.choice(p)
 
-        with connect(port) as client:
+        with connect(pick) as client:
             for ix,s in enumerate(all_data):
                 st = time()
                 resp = client.get(s)
@@ -84,7 +84,7 @@ try:
     print "\nDone."
 
     for client_id in range(num_clients):
-        client = Process(target=run_client, args=(lock, list(p), list(all_data),
+        client = Process(target=run_client, args=(lock, list(ports), list(all_data),
             client_id))
         client.start()
         clients.append(client)
