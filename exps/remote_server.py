@@ -6,7 +6,6 @@ import random
 import threading
 import multiprocessing
 
-from nose.tools import *
 from time import sleep, time
 import numpy as np
 from ChordServer import *
