@@ -127,7 +127,7 @@ Rakesh Varna
 
 \maketitle
 \begin{abstract}
-In this report, we implement and evaluate the performance of a Distributed Hash Table (DHT) based on Chord \cite{chord}. We experiment with different replication strategies.
+This project aims to implement a distributed key-value storage system. We implement a Distributed Hash Table (DHT) system based on Chord \cite{chord}. In addition to supporting node joining and failure as outlined in the Chord paper, we experiment and evaluate different replication strategies as well as the addition of finger tables to reduce the $O(n)$ complexity to $O(\log n)$.
 \end{abstract}
 
 % A category with the (minimum) three required fields
@@ -140,7 +140,7 @@ In this report, we implement and evaluate the performance of a Distributed Hash 
 \keywords{Distributed Hash Tables, Distributed Key-Value Stores} % NOT required for Proceedings
 
 \section{Introduction}
-Distributed Hash Tables (DHTs) serve as decentralized key-value stores that scale well and are fault-tolerant. Each participating node is responsible for storing a set of keys and their corresponding values. DHTs are known for their fast (logarithmic) key lookups \cite{chord}. 
+Distributed Hash Tables (DHTs) serve as decentralized key-value stores that scale well and are fault-tolerant. Each participating node is responsible for storing a set of keys and their corresponding values. DHTs are known for their fast (logarithmic) key lookups \cite{chord}. The Chord protocol as described in the Chord paper \cite{chord} maps a key-value pair onto a node with consistent hashing to assign keys onto nodes in a distributed manner.  
 
 The remainder of the report is structured as follows: Section 2 briefly describes Chord, a peer to peer lookup protocol that our implementation is based on. Section 3 describes the different lookup and replication strategies that we have implemented. We discuss the design of our experiments in Section 4. In Section 5, we analyse and discuss the results of our experiments. We conclude in section 6.
 
@@ -232,8 +232,22 @@ We have implemented a scalable and fault tolerant distributed hash table based o
 % The following two commands are all you need in the
 % initial runs of your .tex file to
 % produce the bibliography for the citations in your paper.
+\vspace{-0.1cm}
 \bibliographystyle{abbrv}
-\bibliography{sigproc}  % sigproc.bib is the name of the Bibliography in this case
+\begin{thebibliography}{00}
+\vspace{-0.1cm}
+
+\bibitem{chord}
+I. Stoica, R. Morris, D. Karger, M. Frans Kaashoek, H. Balakrishnan
+``A Scalable Peer-to-peer Lookup Service for Internet Applications",
+{\em http://pdos.lcs.mit.edu/chord} (2001)
+
+\bibitem{consistenthashing}
+D. Karger, E. Lehman, F. Leighton, M. Levine, D. Lewin and R. Panigrahy,
+``Consistent hashing and random trees: Distributed caching protocols for relieving hot spots on the World Wide Web."
+{\em Proceedings of the 29th Annual ACM Symposium on Theory of Computing} (1997)
+
+  % sigproc.bib is the name of the Bibliography in this case
 % You must have a proper ".bib" file
 %  and remember to run:
 % latex bibtex latex latex
@@ -242,4 +256,5 @@ We have implemented a scalable and fault tolerant distributed hash table based o
 % ACM needs 'a single self-contained file'!
 %
 % That's all folks!
+\end{thebibliography}
 \end{document}
