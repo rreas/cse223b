@@ -28,7 +28,7 @@ myip = sys.argv[1]
 
 otherip = None
 otherport = None
-if len(sys.argv) > 1:
+if len(sys.argv) > 2:
     otherip = sys.argv[2]
     otherport = int(sys.argv[3])
 
