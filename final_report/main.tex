@@ -142,6 +142,9 @@ In this report, we implement and evaluate the performance of a Distributed Hash 
 \section{Introduction}
 Distributed Hash Tables (DHTs) serve as decentralized key-value stores that can scale well and are fault-tolerant. Each participating node is responsible for storing a set of keys and their corresponding values. DHTs are known for their fast, $O(\log N)$ key lookups \cite{chord}.
 
+Being distributed, these key-value stores face the challenge of choosing suitable replication and consistency strategies. Replication is necessary for fault-tolerance and depending on the particular strategy implemented, it might help in reducing latency for reads and writes (for example, if a client is allowed to write to any replica \cite{dynamo}). With replication, there is a trade-off between latency and consistency. An implementation can enforce strong consistency guarantees while sacrificing latency, since each replica will need to be updated with every update to the key before returning back to the client. Some key-value stores enforce a weaker consistency model, allowing fast writes. The replication is handled by a separate thread in the application. This way, writes are \textit{eventually} propagated to other replicas. Fast writes come with strings attached. There exists a small window of time, wherein, if the server holding the new updates (primary) fails before the keys and the corresponding values have been replicated, the data is lost and cannot be recovered. The client should be prepared to handle such a scenario. One aim of this project is to implement both these consistency models and analyze the impact on latency and reliability.
+
+
 The remainder of the report is structured as follows: Section 2 briefly describes Chord, a peer to peer lookup protocol that our implementation is based on. Section 3 describes the different lookup and replication strategies that we have implemented. We discuss the design of our experiments in Section 4. In Section 5, we analyze and discuss the results of our experiments. We conclude in section 6.
 
 \section{Chord} 
@@ -188,7 +191,19 @@ In Chord, node failures might result in an incorrect successor pointer and there
 It is possible that a node maps a key to another node using the finger table and the latter has failed. In this case, the node proceeds with the next best guess from the finger table. At some point, we will reach the predecessor of the failed node which forces the stabilization and continues with the lookup. In the next round of fix-finger-table, all the pointers will be corrected. As a result of these choices, a client will get the value for a given key if it exists within any one of the nodes without requiring a retry. The latency might be slightly higher for that particular query.
 
 \section{Implementation}
-We have implemented multiple variants of Chord to experiment with and analyze their performance. The key value store is implemented in Python. We use Apache Thrift \cite{thrift} for making RPCs between the nodes. We use MD5 hashing to convert the given key into a 128 bit identifier on the circle. The identifier for a node in Chornamo is the MD5 hash of hostname and port number of the node in the form ``hostname:port\_number".  Each of the variants is described below.
+We have implemented multiple variants of Chord to experiment with and analyze their performance. The key value store is implemented in Python. We use Apache Thrift \cite{thrift} for making RPCs between the nodes. We use MD5 hashing to convert the given key into a 128 bit identifier on the circle. The identifier for a node in Chornamo is the MD5 hash of hostname and port number of the node in the form ``hostname:port\_number".
+\begin{table}[t] \centering
+    \begin{tabular}{|l|l|}  \hline
+         Hashing function & MD5\\ \hline
+        Number of bits in Identifier& 128 \\ \hline
+        Length of finger\_table& 128 entries \\ \hline
+        Length of successor list & Up to 5 entries \\ \hline
+    \end{tabular}
+    \caption{Chornamo implementation details.}
+    \label{tab:implementation-details}
+\end{table}
+
+Each of the variants is described below.
 \paragraph{Chord with slow lookup}
 This version maintains only the successor pointer for lookups and a successor list for robustness. This results in an $O(n)$ lookup complexity for mapping a key to a node. Other variants of Chord are built over this basic version. The stabilize method is handled by a separate thread which runs every 2 seconds.
 
@@ -230,7 +245,7 @@ The results are displayed in Figure \ref{fig:finger-tables}. It is clear that fi
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=1\columnwidth]{./response2.png}
+\includegraphics[width=1\columnwidth]{response2.png}
 \caption{$O(N)$ vs $O(\log N)$.  Response time for the basic Chord implementation continues to increase linearly.  The implementation with finger tables scales logarithmically as expected. Trials were run for 1, 2, 4, 8, 16, and 32 servers.}
 \label{fig:finger-tables}
 \end{figure}
@@ -240,9 +255,9 @@ The results are displayed in Figure \ref{fig:finger-tables}. It is clear that fi
 We run the same set of experiments, but now over the network using the class provided cluster machines. Each node is now hosted on a separate server.  
 
 %FIXME
-remote 4 servers	mean	max
-finger table	8.22133302689	17.9488658905
-rep succ	14.0580677986	27.3051261902
+remote 4 servers    mean  max
+finger table  8.22133302689 17.9488658905
+rep succ  14.0580677986 27.3051261902
 
 (when the number of nodes exceeds the number of servers at our disposal, we run with a maximum of two nodes at each server). Figure \ref{} presents the results. As expected, the network does not have any other effect on the results presented above, other than adding latency to each of them.
 For the rest of the experiments, we use implementations that incorporate finger tables.
@@ -252,7 +267,7 @@ In this experiment, we analyze the effect of concurrent lookups on latency. We r
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=1\columnwidth]{./contention.png}
+\includegraphics[width=1\columnwidth]{contention.png}
 \caption{Contention.}
 \label{fig:contention}
 \end{figure}
@@ -263,7 +278,7 @@ In this experiment, we analyze the effect of concurrent lookups on latency. We r
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=1\columnwidth]{./response1.png}
+\includegraphics[width=1\columnwidth]{response1.png}
 \caption{Read vs. Write with Replication.}
 \label{fig:read-write-rep}
 \end{figure}
@@ -275,7 +290,7 @@ In this experiment, we analyze the effect of concurrent lookups on latency. We r
 
 \begin{figure}[h]
 \centering
-\includegraphics[width=1\columnwidth]{./response-fail.png}
+\includegraphics[width=1\columnwidth]{response-fail.png}
 \caption{Response Time on Server Failure}
 \label{fig:response-fail}
 \end{figure}
