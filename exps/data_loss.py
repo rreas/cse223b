@@ -33,12 +33,12 @@ def fake_data(length):
 
 # Create a bunch of fake data.
 all_data = set()
-while(len(all_data) < 2000):
+while(len(all_data) < 1000):
     all_data.add(fake_data(10))
 
-ports = set(range(3000, 3008))
+ports = set(range(3000, 3011))
 plock = threading.Lock() # Just to avoid crashing while getting data.
-crash_prob = 0.1
+crash_prob = 0.4
 should_quit = False
 
 def crash_with_prob():
@@ -48,14 +48,13 @@ def crash_with_prob():
         if len(ports) == 2: # Don't crash the last server.
             return
 
-        sleep(0.1)
+        sleep(0.001)
         if random.random() < crash_prob:
-            with plock:
-                port = random.choice(list(ports))
-                print "\nI KILL YOU PORT", port
-                ports.remove(port)
-                servers[port].terminate()
-                del servers[port]
+            port = random.choice(list(ports))
+            print "\nI KILL YOU PORT", port
+            ports.remove(port)
+            servers[port].terminate()
+            del servers[port]
             sleep(1)
 
 # Spawn servers and store data.
@@ -64,17 +63,6 @@ try:
     servers = create_servers_in_range(min(ports), max(ports)+1)
     print "Done."
     sleep(5)
-
-    results = np.zeros((len(all_data),))
-
-    # Store all the data.
-    print "Putting data."
-    with connect(min(ports)) as client:
-        for s in all_data:
-            client.put(s,s)
-            sys.stdout.write('.')
-            sys.stdout.flush()
-    print "\nDone."
 
     # Start thread that can crash stuff.
     thread = threading.Thread(target=crash_with_prob)
@@ -85,23 +73,33 @@ try:
     count = 0
 
     for i, s in enumerate(all_data):
-        with plock:
-            with connect(min(ports)) as client:
-                st = time()
-                resp = client.get(s)
-                fn = time()
-                results[i] = fn-st
-                if resp.value == s:
-                    count = count + 1
+        with connect(min(ports)) as client:
+            try:
+                client.put(s,s)
+            except Thrift.TException, tx:
+                continue
         sys.stdout.write('.')
         sys.stdout.flush()
+
+    thread.join()
+
+    print "Starting get."
+
+    for i, s in enumerate(all_data):
+        with connect(min(ports)) as client:
+            resp = client.get(s)
+            if resp.value == s:
+                count = count + 1
+        sys.stdout.write('.')
+        sys.stdout.flush()
+
 
     print "\nExpected vs. count:", expected, count
     should_quit = True
     sleep(1) # Just give thread time to exit.
 
-    for val in results:
-        print val
+    #for val in results:
+    #    print val
 
 finally:
     for proc in servers.values():
