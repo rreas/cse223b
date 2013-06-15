@@ -224,23 +224,62 @@ Clearly, the distribution of keys is uneven, with the maximum of 4,267 keys bein
 In these experiments, we analyze the effect of replication on write performance as well as the usage of finger tables on the read latency. We discuss each experiment them below.
 
 \subsubsection{Basic Chord vs. Chord with finger tables}
-The basic Chord implementation has an $O(N)$ lookup complexity while the implementation with finger tables is theoretically logarithmic. We aim to find how well each of them performs in practice. We run a succession of trials, with the number of servers increasing in each successive trial, to see how that impacts latency. In each case, we add 1000 randomly generated keys and values. Experiments are run on a machine with 128 GB of RAM and 16 cores. Results continue to scale as expected to 32 servers.  
+The basic Chord implementation has an $O(N)$ lookup complexity while the implementation with finger tables is theoretically logarithmic. We aim to find how well each of them performs in practice. We run a succession of trials, with the number of servers increasing in each successive trial, to see how that impacts latency. In each case, we add 1000 randomly generated keys and values. Experiments are run on a machine with 128 GB of RAM and 16 cores. Results continue to scale as expected to 32 servers though we run all servers on \verb|localhost|.
 
-The results are displayed in Figure \ref{}. It is clear that finger tables definitely help improve the lookup latency. In fact, the timing match the theoretical expectations.
+The results are displayed in Figure \ref{fig:finger-tables}. It is clear that finger tables definitely help improve the lookup latency. In fact, the timings match the theoretical expectations.  Likely there will be some overhead in running over the network, and we will test this in a later experiment.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=1\columnwidth]{./response2.png}
+\caption{$O(N)$ vs $O(\log N)$.  Response time for the basic Chord implementation continues to increase linearly.  The implementation with finger tables scales logarithmically as expected. Trials were run for 1, 2, 4, 8, 16, and 32 servers.}
+\label{fig:finger-tables}
+\end{figure}
+
 
 \paragraph{Over the network}
-We run the same set of experiments, but now over the network. Each node is now hosted on a separate server (when the number of nodes exceeds the number of servers at our disposal, we run with a maximum of two nodes at each server). Figure \ref{} presents the results. As expected, the network does not have any other effect on the results presented above, other than adding latency to each of them.
+We run the same set of experiments, but now over the network using the class provided cluster machines. Each node is now hosted on a separate server.  
+
+%FIXME
+remote 4 servers	mean	max
+finger table	8.22133302689	17.9488658905
+rep succ	14.0580677986	27.3051261902
+
+(when the number of nodes exceeds the number of servers at our disposal, we run with a maximum of two nodes at each server). Figure \ref{} presents the results. As expected, the network does not have any other effect on the results presented above, other than adding latency to each of them.
 For the rest of the experiments, we use implementations that incorporate finger tables.
 
 \subsection{Concurrent lookups}
 In this experiment, we analyze the effect of concurrent lookups on latency. We run the experiment with XX servers and YY clients, with each of them adding and retrieving ZZ keys from the nodes. The results are presented in Figure \ref{}.
 
+\begin{figure}[h]
+\centering
+\includegraphics[width=1\columnwidth]{./contention.png}
+\caption{Contention.}
+\label{fig:contention}
+\end{figure}
+
+
 
 \subsection{Synchronous replication}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=1\columnwidth]{./response1.png}
+\caption{Read vs. Write with Replication.}
+\label{fig:read-write-rep}
+\end{figure}
+
 
 \subsection{Asynchronous replication}
 
 \subsection{Node failures}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=1\columnwidth]{./response-fail.png}
+\caption{Response Time on Server Failure}
+\label{fig:response-fail}
+\end{figure}
+
 
 \section{Limitations}
 Python threads...  blah
