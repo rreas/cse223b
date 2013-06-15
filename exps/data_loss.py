@@ -74,10 +74,14 @@ try:
 
     for i, s in enumerate(all_data):
         with connect(min(ports)) as client:
-            try:
-                client.put(s,s)
-            except Thrift.TException, tx:
-                continue
+            while(True):
+                try:
+                    client.put(s,s)
+                except Thrift.TException, tx:
+                    continue
+                else:
+                    break
+
         sys.stdout.write('.')
         sys.stdout.flush()
 
