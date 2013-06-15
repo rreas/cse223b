@@ -209,7 +209,23 @@ In this experiment, we check how well the keys are distributed among the nodes. 
 \subsection{Latency}
 In these experiments, we analyse the effect of replication and concurrent queries and to the DHT and usage of finger tables on the latency. We discuss each of them below.
 \subsubsection{Basic Chord vs. Chord with finger tables}
-Basic Chord has an $O(N)$ lookup complexiy while the implementation with finger tables is theoretically logarithmic. We aim to find how well each of them performs in practice. We run a succession of trials (on localhost), with the number of servers increasing in each successive trial, to see how that impacts latency. In each case, we add XX number of keys and values. The results are displayed in Figure \ref{}. It is clear that finger tables definitely help improve the lookup latency. In fact, the timing match the theoretical expectations.
+Basic Chord has an $O(N)$ lookup complexiy while the implementation with finger tables is theoretically logarithmic. We aim to find how well each of them performs in practice. We run a succession of trials (on localhost), with the number of servers increasing in each successive trial, to see how that impacts latency. In each case, we add XX number of keys and values. The results are displayed in Figure \ref{fig:finger-tables}. It is clear that finger tables definitely help improve the lookup latency. In fact, the timing match the theoretical expectations.
+
+\begin{figure}[h]
+\vspace{-0.1in}
+\centering
+\includegraphics[width=1\columnwidth]{./response2.png}
+\caption{$O(N)$ vs $O(\log N)$ Lookup}
+\label{fig:finger-tables}
+\end{figure}
+
+\begin{figure}[h]
+\vspace{-0.1in}
+\centering
+\includegraphics[width=1\columnwidth]{./response1.png}
+\caption{Read vs. Write with Replication.}
+\label{fig:read-write-rep}
+\end{figure}
 
 \paragraph{Over the network}
 We run the same set of experiments, but now over the network. Each node is now hosted on a separate server (when the number of nodes exceeds the number of servers at our disposal, we run with a maximum of two nodes at each server). Figure \ref{} presents the results. As expected, the network does not have any other effect on the results presented above, other than adding latency to each of them.
@@ -218,12 +234,28 @@ For the rest of the experiments, we use implementations that incorporate finger 
 \subsection{Concurrent lookups}
 In this experiment, we analyze the effect of concurrent lookups on latency. We run the experiment with XX servers and YY clients, with each of them adding and retrieving ZZ keys from the nodes. The results are presented in Figure \ref{}.
 
+\begin{figure}[h]
+\centering
+\includegraphics[width=1\columnwidth]{./contention.png}
+\caption{Contention.}
+\label{fig:contention}
+\end{figure}
+
+
 
 \subsection{Synchronous replication}
 
 \subsection{Asynchronous replication}
 
 \subsection{Node failures}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=1\columnwidth]{./response-fail.png}
+\caption{Response Time on Server Failure}
+\label{fig:response-fail}
+\end{figure}
+
 
 \section{Limitations}
 Python threads...  bl
