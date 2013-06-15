@@ -73,8 +73,8 @@ try:
     count = 0
 
     for i, s in enumerate(all_data):
-        with connect(min(ports)) as client:
-            while(True):
+        while(True):
+            with connect(min(ports)) as client:
                 try:
                     client.put(s,s)
                 except Thrift.TException, tx:
